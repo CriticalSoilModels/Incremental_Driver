@@ -57,10 +57,10 @@ contains
       if(keywords(2) == '*DeformationGradient') then                     ! full deformation gradient.
 ! finite rotations calculated after Hughes+Winget 1980
          Fb = reshape((/deltaLoad(1), deltaLoad(5), deltaLoad(7),  &
-                      deltaLoad(4), deltaLoad(2), deltaLoad(9),    &
-                      deltaLoad(6), deltaLoad(8), deltaLoad(3)/),  &
-                      (/3,3/))
-                      
+            deltaLoad(4), deltaLoad(2), deltaLoad(9),    &
+            deltaLoad(6), deltaLoad(8), deltaLoad(3)/),  &
+            (/3,3/))
+
          Fbb = delta + (Fb-delta)*(time(1)/deltaTime)
          dfgrd0  = Fbb
          dFb = (Fb-delta)/ninc

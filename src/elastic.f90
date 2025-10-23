@@ -1,8 +1,9 @@
 module mod_UMAT
+   use stdlib_kinds, only: dp
    implicit none
    private
    public :: UMAT
-   
+
 contains
    SUBROUTINE UMAT(STRESS,STATEV,DDSDDE,SSE,SPD,SCD, &
       RPL,DDSDDT,DRPLDE,DRPLDT, &
@@ -23,9 +24,9 @@ contains
          PROPS(NPROPS),COORDS(3),DROT(3,3),DFGRD0(3,3),DFGRD1(3,3)
 
       ! local variables
-      real(8), PARAMETER :: ONE=1.0D0, TWO=2.0D0
+      real(dp), PARAMETER :: ONE=1.0D0, TWO=2.0D0
       integer :: I,J
-      real(8) :: E,ANU,ALAMDA,AMU
+      real(dp) :: E,ANU,ALAMDA,AMU
 
       E=PROPS(1)
       ANU=PROPS(2)

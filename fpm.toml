@@ -1,6 +1,6 @@
 name = "Incremental_Driver"
 version = "0.1.0"
-license = "license"
+license = "BSD"
 author = "Jonathan Moore"
 maintainer = "jonathanm@vt.edu"
 copyright = "Copyright 2024, Jonathan Moore"
@@ -9,8 +9,20 @@ auto-executables = true
 auto-tests = true
 auto-examples = true
 module-naming = false
+# external-modules = ["stdlib"]
+
+[dependencies]
+
+# stdlib = { git = "https://github.com/fortran-lang/stdlib", branch = "stdlib-fpm" }
+stdlib = {path = "../../stdlib"}
+# fortplot = { git = "https://github.com/krystophny/fortplot" }
+
+[dev-dependencies]
+# fortplot = { git = "https://github.com/krystophny/fortplot/" }
+
 [install]
 library = false
+test = false
 [fortran]
 implicit-typing = false
 implicit-external = false
