@@ -1,4 +1,4 @@
-## incremental-driver: Constitutive Model Calibrator and Tester in Modern Fortran
+## incremental-driver: A constitutive Model Calibrator and Tester in Modern Fortran
 
 ## Compiling
 
