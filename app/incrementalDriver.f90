@@ -38,30 +38,45 @@
 !  Main program that\_calls\_umat ( performs calculation writing  to output.txt).
 PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
    use stdlib_kinds, only: dp
-   use incrementalDriver_funcs, only: splitaLine, ReadStepCommons, PARSER, get_increment,&
-      USOLVER, EXITNOW
-   use mod_UMAT             , only: UMAT
+   use stdlib_io, only: open
+   use mod_UMAT, only: UMAT
+   use mod_inc_driver_funcs, only: splitaLine, ReadStepCommons, PARSER, get_increment,USOLVER, EXITNOW
+
+   use mod_types   , only: StressAlignment, descriptionOfStep
+   use mod_matrices, only: MRoscI, MRoscImt, MRendul, MRendulmT, MRosc, MRoscmT, MCart, MCartmT
+
+   use mod_command_line, only: set_inputs
+   use mod_file_io, only: read_parameter_file, read_init_conditions_file, set_output_name_from_test_file, &
+      write_line_output_data, write_output_file_header
+   use mod_alignment, only: readAlignment, tryAlignStress
+
    implicit none
 
-   character*80  cmname
-   integer :: ndi,nshr,ntens,nstatv,nprops,ncrds
-   integer :: noel,npt,layer,kspt,lrebar,kinc,i
-   
-   real(dp), parameter,dimension(3,3):: delta = reshape([1,0,0,0,1,0,0,0,1],[3,3])
-   integer, parameter :: ntens=6, ndi=3,nshr=3,ncrds=3 ! same ntens as in SOLVER
-   integer, parameter :: noel=1 , npt=1,layer=1,kspt=1,lrebar=1
+   real(dp), parameter          :: delta(3,3) = reshape([1,0,0,0,1,0,0,0,1],[3,3])
+   integer, parameter           :: ntens=6, ndi=3,nshr=3,ncrds=3 ! same ntens as in SOLVER
+   integer, parameter           :: noel=1 , npt=1,layer=1,kspt=1,lrebar=1
    character(len=80), parameter :: rebarn ='xxx'
+
+   integer :: nstatv,nprops
+   integer :: kinc,i
+   integer :: test_file_id, output_file_id !! Variable to hold file id when it's opened (Will be deprecated)
+   integer :: iostat
+
    real(dp) :: dtime,temp,dtemp,sse,spd,scd,rpl,drpldt,pnewdt,celent
    real(dp) :: stress(ntens),&
       ddsdde(ntens,ntens),ddsddt(ntens),drplde(ntens),&
       stran(ntens),dstran(ntens),time(2),predef(1),dpred(1),&
       coords(ncrds),drot(3,3),dfgrd0(3,3),dfgrd1(3,3)
+
+   character(len=80) ::cmname
    character(len=1) :: aChar                                       ! AN 2016
+
    character(len=40):: keywords(10), outputfilename,&
       parametersfilename,&
       initialconditionsfilename, testfilename, outputfilename1,&
       exitCond, ImportFileName,mString, keyword2, &                 ! AN 2016
       aShortLine, leftLine, rightLine
+
    character(len=260) ::  inputline(6), aLine, heading
    character(len=520) :: hugeLine
 
@@ -91,222 +106,57 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       deltaLoadCirc(6),phase0(6),deltaLoad(9),           &
       dstran_Cart(6), ddsdde_bar(6,6), deltaTime,        &
       deltaTemp
-   real(dp),parameter :: sq3=1.7320508075688772935d0,&
-      sq6=2.4494897427831780982d0,&
-      sq2=1.4142135623730950488d0,&
-      Pi =3.1415926535897932385d0
-   real(dp),parameter :: i3=0.3333333333333333333d0,&
-      i2=0.5d0,                  &
-      isq2=1/sq2,                &
-      isq3=1.0d0/sq3,            &
-      isq6=1.0d0/sq6
 
-   !  M for isomorphic Roscoe variables P,Q,Z,....
-   real(dp), parameter,dimension(1:6,1:6)::MRoscI=reshape( &
-      (/-isq3,-2.0d0*isq6,0.0d0,  0.0d0, 0.0d0, 0.0d0,     &
-      -isq3, isq6,      -isq2,  0.0d0, 0.0d0, 0.0d0,  &
-      -isq3, isq6,       isq2,  0.0d0, 0.0d0, 0.0d0,  &
-      0.0d0, 0.0d0,     0.0d0, 1.0d0, 0.0d0, 0.0d0,  &
-      0.0d0, 0.0d0,     0.0d0, 0.0d0, 1.0d0, 0.0d0,  &
-      0.0d0, 0.0d0,     0.0d0, 0.0d0, 0.0d0, 1.0d0/),&
-      (/6,6/))
-
-   real(dp), parameter,dimension(1:6,1:6)::MRoscImT=MRoscI            !  latest $\cM^{-T}$ (is orthogonal)
-
-   !  M for isomorphic Rendulic $ sigma_{11}= -T_{11}$,  $sigma_{22}  = -(T_{22} + T_{33}) / \sqrt(2) $,  $ Z= \dots$
-   real(dp), parameter,dimension(1:6,1:6)::MRendul=reshape( &
-      (/ -1.0d0, 0.0d0,  0.0d0,  0.0d0,0.0d0,0.0d0,         &
-      0.0d0, -isq2,  -isq2,  0.0d0,0.0d0,0.0d0,       &
-      0.0d0, -isq2,   isq2,  0.0d0,0.0d0,0.0d0,       &
-      0.0d0,  0.0d0, 0.0d0,  1.0d0,0.0d0,0.0d0,       &
-      0.0d0,  0.0d0, 0.0d0,  0.0d0,1.0d0,0.0d0,       &
-      0.0d0,  0.0d0, 0.0d0,  0.0d0,0.0d0,1.0d0/),     &
-      (/6,6/))
-
-   real(dp), parameter,dimension(1:6,1:6)::MRendulmT=MRendul          !  latest  $\cM^{-T}$   (is orthogonal)
-
-   !  M for Roscoe variables $p,q,z,....$
-   real(dp), parameter,dimension(1:6,1:6)::MRosc=reshape( &
-      (/-i3,-1.0d0, 0.0d0,    0.0d0,0.0d0,0.0d0,          &
-      -i3, i2, -1.0d0,      0.0d0,0.0d0,0.0d0,       &
-      -i3,i2, 1.0d0,       0.0d0,0.0d0,0.0d0,       &
-      0.0d0, 0.0d0,0.0d0,  1.0d0,0.0d0,0.0d0,       &
-      0.0d0, 0.0d0, 0.0d0, 0.0d0,1.0d0,0.0d0,       &
-      0.0d0, 0.0d0, 0.0d0, 0.0d0,0.0d0,1.0d0/),     &
-      (/6,6/))
-
-   !  latest  $\cM^{-T}$   (is not orthogonal)
-   real(dp), parameter,dimension(1:6,1:6)::MRoscmT=reshape( &
-      (/-1.0d0, -2.0d0*i3, 0.0d0,  0.0d0, 0.0d0,0.0d0,     &
-      -1.0d0,   i3,      -i2,    0.0d0,0.0d0,0.0d0,       &
-      -1.0d0,   i3,       i2,    0.0d0,0.0d0,0.0d0,       &
-      0.0d0, 0.0d0, 0.0d0, 1.0d0, 0.0d0, 0.0d0,           &
-      0.0d0, 0.0d0, 0.0d0, 0.0d0, 1.0d0, 0.0d0,           &
-      0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 1.0d0/),         &
-      (/6,6/))
-
-   !  M for Cartesian coords $T_{11}, T_{22}, T_{33}, T_{12},.....$
-   real(dp), parameter,dimension(1:6,1:6)::MCart=reshape( &
-      (/ 1.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0,    &
-      0.0d0, 1.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0,   &
-      0.0d0, 0.0d0, 1.0d0, 0.0d0, 0.0d0, 0.0d0,   &
-      0.0d0, 0.0d0, 0.0d0, 1.0d0, 0.0d0, 0.0d0,   &
-      0.0d0, 0.0d0, 0.0d0, 0.0d0, 1.0d0, 0.0d0,   &
-      0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 1.0d0/), &
-      (/6,6/))
-
-   real(dp), parameter,dimension(1:6,1:6)::MCartmT=MCart              !  latest  $\cM^{-T}$  (is orthogonal)
-
-
-   real(dp),dimension(1:6,1:6)::M,MmT                                 !  currrent $\cM$ and $\cM^{-T}$  for a given iStep
+   real(dp),dimension(1:6,1:6)::M,MmT      !  currrent $\cM$ and $\cM^{-T}$  for a given iStep
    real(dp) :: aux1,aux2
 
-   type descriptionOfStep
-      integer:: ninc,maxiter, ifstress(ntens),columnsInFile(7),mImport ! AN 2016
-      real(dp) :: deltaLoadCirc(ntens),phase0(ntens),deltaLoad(9),    &
-         dfgrd0(3,3), dfgrd1(3,3),deltaTime, importFactor(7),&
-         deltaTemp                                            ! AN 2023 temperat
-      character(40) :: keyword2, keyword3, exitCond,ImportFileName    ! AN 2016
-      real(dp),dimension(1:6,1:6) :: cMt, cMe
-      real(dp),dimension(1:6) :: mbinc
-      logical::existCond                                              ! AN 2016
-   end type  descriptionOfStep
-
-   type StressAlignment
-      logical:: active
-      character(len=40) :: ImportFileName
-      integer:: kblank,nrec,kReversal, ncol
-      integer,dimension(100) :: Reversal
-      integer,dimension(6):: isig
-      real(dp),dimension(6) :: sigFac
-   end type StressAlignment
-
    type(StressAlignment) :: align
-
    type(descriptionOfStep) :: ofStep(30)            !  stores descriptions of up to 30 steps which are repeated
 
 
-   ! [1]  read the command-line parameters to set the file names  *************
-   continue
+   ! [1]  Set the filenames and the verose seting
+   call set_inputs(parametersfilename, initialconditionsfilename, &
+      testfilename, outputfilename, verbose)
 
-   parametersfilename = 'parameters.inp'
-   initialconditionsfilename  = 'initialconditions.inp'
-   testfilename = 'test.inp'
-   outputfilename = '--'
-   verbose = .true.
-   call  get_command_line_arguments() ! command line  can override the above file names
+   ! Get the number of properties, the property values and the material name
+   call read_parameter_file(parametersfilename, nprops, props, cmname)
 
+   ! Set default values and read initial conditions
+   call read_init_conditions_file(initialconditionsfilename, stress, time, stran,&
+      dtime, temp, statev, r_statev, statevHead, nstatv)
 
-!  [2] read the material parameters ************************************************
-   open(1,err=901,file=parametersfilename,status='old')
-   read(1,'(a)') cmname
-   i = index(cmname, '#')
-   if(i == 0) then
-      cmname = trim(cmname)
-   else
-      cmname = cmname(:i-1)
-      cmname = trim(cmname)
-   endif
-   read(1,*) nprops
-   allocate( props(nprops) )
-   do i=1,nprops
-      read(1,*) props(i)
-   enddo
-   close(1)
+   ! TODO: File is open for awhile doesn't get closed until later
+   test_file_id = open(testfilename, iostat = iostat)
+   if (iostat /= 0) error stop "Can't read file: "//testfilename
 
-![3]  read initial conditions and  initialize everything **************************************
-   open(1,err=902,file=initialconditionsfilename,status='old')
-   read(1,*) ntens_in
-   stress(:) = 0.0d0
-   time(:) = 0.0d0
-   stran(:)=0.0d0
-   dtime = 0.0d0
-   do i=1,ntens_in
-      read(1,*) stress(i)
-   enddo
+   call set_output_name_from_test_file(test_file_id, outputfilename, heading)
 
-   temp  = 0.0d0                    !  default initial temperature               AN 2023
-   read(1,'(a)') aLine              ! AN 2023  aLine may be *temperature= 30.0 or   nstatv
-   i = index(aLine,'=')             ! AN 2023
-   if(i==0) then                   ! AN 2023 '=' is absent so read nstatv
-      read(aLine,*) nstatv          ! AN 2023
-   else                              ! AN 2023
-      aLine = trim(aLine(i+1:))
-      read(aLine,*) temp             ! AN 2023
-      read(1,*) nstatv                ! AN 2023
-   endif                             ! AN 2023
+   ! TODO: File is open for awhile doesn't get closed until later
+   output_file_id = open(outputfilename, iostat = iostat)
+   if (iostat /= 0) error stop "Can't open file: "//outputfilename
 
-   if(nstatv >= 1) then
-      allocate(statev(nstatv), r_statev(nstatv), statevHead(nstatv)) !  AN 2016
-      statev(:) = 0.0d0
-      do i=1,nstatv
-         read(1,*,end=500) statev(i)   !
-      enddo
-   else
-      allocate( statev(1) , r_statev(1), statevHead(1)  )             !  AN 2016 formal placeholder not really used
-      statev(:) = 0.0d0
-      nstatv = 1
-   endif
-500 continue
-   close(1)
-
-!      ntens\_in = 6
-!      nstatv = 300
-!      allocate( statev(nstatv) , r\_statev(nstatv) )
-!      statev = 0.0d0
-!      call ParaelasticInitialCondition(statev)        ! Loads two states into the stack
-
-![4] read a piece from the loading path ***********************************************************
-
-
-
-
-
-   open(1,err=903,file=testfilename,status='old')
-![4.1] read the outputfilename from test.inp, create/open this file and write the tablehead, heading(if any)  and the first line = initial conditions
-   read(1,'(a)') aLine
-   i = index(aLine,'#')
-   if(i==0) then
-      outputfilename1=trim(aLine)
-      heading = '#'
-   else
-      outputfilename1=trim(aLine(:i-1))
-      heading = trim( aLine(i+1:) )
-   endif
-   if(outputfilename == '--') outputfilename = outputfilename1
-   open(2,err=904,file=outputfilename)
-
-   do i=1,2
-      write(timeHead(i),'(a,i1,a)')  'time(',i, ')'
-   enddo
-   do i=1,6
-      write( stranHead(i), '(a,i1,a)' )   'stran(',i, ')'
-      write(stressHead(i), '(a,i1,a)' )  'stress(',i, ')'
-   enddo
-   do i=1,nstatv
-      write(statevHead(i), '(a,i3,a)' )  '  statev(',i, ')'
-   enddo
-   write(2,'(a14,500a20)') timeHead,stranHead,stressHead,statevHead
-
-
-   if(heading(1:1) /= '#') write(2,*) trim(heading)
-   write(2,'(500(g17.10,3h    ))') time+(/dtime,dtime/), stran, stress, statev
+   call write_output_file_header(output_file_id, heading, nstatv)
+   call write_line_output_data(output_file_id, time, dtime, stran, stress, statev)
 
 ![4.2]  loop over keywords(1) unless keyword(1) = *Repetition  it is copied to keyword(2) which is the true type of loading
    kStep = 0  ! kStep = counter over all steps whereas  iStep = counter over steps within a *Repetition
-   do 200 ikeyword=1,10000
-      read(1,'(a)',end=999) keywords(1)
+   do_keyword: do ikeyword=1,10000
+
+      read(test_file_id,'(a)',end=999) keywords(1)
+
       keywords(1) = trim( keywords(1) )
+
       if(keywords(1) == '*Repetition') then
-         read(1,*) nSteps, nRepetitions
+         read(test_file_id,*) nSteps, nRepetitions
       else
          nRepetitions=1
          nSteps=1
          keywords(2) = keywords(1)
       endif
 
-      do 130  iRepetition  = 1,nRepetitions
-         do 120 iStep = 1,nSteps
+
+      do_repet: do iRepetition  = 1,nRepetitions
+         do_istep: do iStep = 1,nSteps
             kStep = kStep + 1
 
             ! ! write to the screen before the first increment
@@ -601,7 +451,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
             endif
 
             ievery=1
-            do 100 kinc=1,ninc
+            do_kinc: do kinc=1,ninc
 
                if(keywords(2) == '*ImportFile') then                             ! AN 2016
                   deltaTemp = 0                                                  ! AN 2023 temperat
@@ -640,7 +490,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                r_statev(:)=statev(:)  ! remember the initial state and stress till the iteration is completed
                r_stress(:)= stress    ! remembered Cartesian stress
 
-               do 95 kiter=1, maxiter  !--------Equilibrium Iteration--------
+               do_kiter: do kiter=1, maxiter  !--------Equilibrium Iteration--------
                   c_dstran(:) = 0
                   if(keywords(2)== '*ObeyRestrictions'  ) then  ! ======================= ObeyRestrictions =========
                      ddsdde_bar = matmul(cMt,ddsdde) + cMe
@@ -688,7 +538,6 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                      endif
                   endif  ! ==== disObey-restrictions
 
-! 94                continue ! WaveHello: Label not used
 
                   if((kiter==maxiter) .and. mod(kinc,10)==0 .and. verbose ) then    ! write to screen after each increment
                      write(*, '(A,I3,A,I3,A,I5,A,I2,A,F9.4,A,F9.4)') &
@@ -700,7 +549,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                         ' TIME = ', TIME(1)
                   endif
 
-95             continue !--------------------end of Equilibrium Iteration
+               end do do_kiter
 
                aux1 =  dot_product(a_dstress,a_dstress)
                aux2 =  dot_product(u_dstress,u_dstress)
@@ -740,61 +589,31 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                endif                                                            ! AN 2016
                ievery = ievery+1; if(ievery > every) ievery = 1
 
-!*****************************************************
+               !*****************************************************
                if(keywords(2) == '*ImportFile' ) then
                   call  tryAlignStress(align, kinc, newState, mImport,stress,ntens)
                endif
                !***********************************************
 
-100         continue  ! next kinc
-120      continue  ! next iStep
-130   continue  ! next iRepetition
-200 continue  ! next keyword
+            end do do_kinc
+         end do do_istep
+      end do do_repet
+   end do do_keyword
 
 
 
 
 ! 998 stop 'End or record encountered in test.inp' ! WaveHello: Label not used
-999 close(1)
+999 close(test_file_id)
    close(2)
    stop 'I have reached end of the file test.inp'
-901 stop 'I cannot open the file parameters.inp'
-902 stop 'I cannot open the file initialconditions.inp'
-903 stop 'I cannot open the file test.inp'
-904 stop 'I cannot open the outputfile'
 905 stop 'I cannot open the ImportFile'
 906 stop 'Error reading ImportFile in the first non-numeric records '
 907 stop 'Error reading ImportFile in the first numeric record '
 
 contains !========================================================
    !  contained in program\_that\_calls\_umat that reads the command line
-   subroutine get_command_line_arguments()
-      implicit none            ! ===file names in the command line override defaults
-      integer :: iarg,narg, is, iargc
-      integer, parameter :: argLength=40
-      character(argLength) :: anArgument, argType, argValue
-      narg = iargc()
-      do iarg = 1,narg
-         call getarg(iarg,anArgument)
-         is = index(anArgument,'=')
-         if(is == 0) stop 'error: a command line argument without "=" '
-         argType = anArgument(:is-1)
-         argValue =  anArgument(is+1:)
-         select case (argType)
-          case ('param')
-            parametersfilename = argValue
-          case ('ini')
-            initialconditionsfilename = argValue
-          case ('test')
-            testfilename = argValue
-          case ('out')
-            outputfilename = argValue
-          case ('verbose')
-            if (argValue == 'true') verbose = .true.
-            if (argValue == 'false') verbose = .false.
-         end select
-      enddo
-   end  subroutine get_command_line_arguments
+
 
    !   contained in program\_that\_calls\_umat writes a 6x6 matrix for debugging with Mma
    subroutine write66(a)
@@ -860,47 +679,7 @@ contains !========================================================
       map2T = reshape( [b(1),b(4),b(5), b(4),b(2),b(6),  b(5),b(6),b(3) ],[3,3] )
    end function map2T
 
-   !   contained in  program\_that\_calls\_umat  reads a file with instructions for stress alignment
-   subroutine  readAlignment(align, ImportFileName )
-      implicit none
-      character(len=40) ImportFileName, trunc, extension
-      character(len=80) ReversalFileName
-      logical ::  okSplit
-      type(StressAlignment) :: align
-      call splitaLine( ImportFileName ,'.',trunc, extension, okSplit )
-      if(.not. okSplit) stop 'error  readAlignment FileName without . '
-      reversalFileName = Trim(trunc) // 'rev'
-      open(22, file=reversalFileName,status ='old', err=555 )
-      align%active=.True.
-      align%reversal(:) = 0
-      read(22,*,err=556)  align%kblank,align%nrec,align%kReversal, align%ncol
-      read(22,*,err=557)  align%reversal(1:align%kReversal)
-      read(22,*,err=558)  align%isig(1:6)
-      read(22,*,err=559)  align%sigFac(1:6)
-      return
-555   align%active=.False.
-      return
-556   stop 'error   readAlignment  cannot read kblank... '
-557   stop 'error   readAlignment  cannot read reversal() '
-558   stop 'error   readAlignment  cannot read sigCol() '
-559   stop 'error   readAlignment  cannot read factor() '
-   end subroutine  readAlignment
-
-!   contained in  program\_that\_calls\_umat tries to align stress to values from aState(1:mImport)
-   subroutine  tryAlignStress(align, kinc, aState, mImport,stress,ntens)
-      implicit none
-      integer:: mImport,kinc,ntens,ie
-      real(dp) :: aState(mImport)
-      real(dp) :: stress(ntens)
-      type(StressAlignment) :: align
-
-      if(.not. align%active) return
-      if(.not. any(align%Reversal == kinc)) return
-
-      ! only  stress components for which isig(ie) /= 0 will be aligned
-      forall(ie=1:ntens, align%isig(ie) /= 0) stress(ie)= aState( align%isig(ie))*align%sigFac(ie)
-      return
-   end subroutine  tryAlignStress
+   
 
 end program that_calls_umat
 

@@ -1,7 +1,7 @@
 ! Functions that are used by incrmental driver
 
 
-module incrementalDriver_funcs
+module mod_inc_driver_funcs
    implicit none
    private
    public :: splitaLine, ReadStepCommons, PARSER, get_increment, USOLVER, EXITNOW
@@ -749,4 +749,4 @@ contains
    end subroutine stopp                             ! AN 2016
 
 
-end module incrementalDriver_funcs
+end module mod_inc_driver_funcs
