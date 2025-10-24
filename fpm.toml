@@ -19,6 +19,8 @@ stdlib = {path = "../../stdlib"}
 
 [dev-dependencies]
 # fortplot = { git = "https://github.com/krystophny/fortplot/" }
+test-drive.git = "https://github.com/fortran-lang/test-drive"
+
 
 [install]
 library = false

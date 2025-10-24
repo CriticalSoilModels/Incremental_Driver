@@ -37,21 +37,22 @@
 
 !  Main program that\_calls\_umat ( performs calculation writing  to output.txt).
 PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
+   use stdlib_kinds, only: dp
    use incrementalDriver_funcs, only: splitaLine, ReadStepCommons, PARSER, get_increment,&
-                                      USOLVER, EXITNOW
+      USOLVER, EXITNOW
    use mod_UMAT             , only: UMAT
    implicit none
-   
-   character*80  cmname,rebarn
-   integer ndi,nshr,ntens,nstatv,nprops,ncrds
-   integer noel,npt,layer,kspt,lrebar,kinc,i
-   real(8),parameter,dimension(3,3):: delta = reshape([1,0,0,0,1,0,0,0,1],[3,3])
 
-   parameter(ntens=6,ndi=3,nshr=3,ncrds=3) ! same ntens as in SOLVER
-   parameter( noel=1 ,npt=1,layer=1,kspt=1,lrebar=1)
-   parameter( rebarn ='xxx')
-   real*8 dtime,temp,dtemp,sse,spd,scd,rpl,drpldt,pnewdt,celent
-   real*8 stress(ntens),&
+   character*80  cmname
+   integer :: ndi,nshr,ntens,nstatv,nprops,ncrds
+   integer :: noel,npt,layer,kspt,lrebar,kinc,i
+   
+   real(dp), parameter,dimension(3,3):: delta = reshape([1,0,0,0,1,0,0,0,1],[3,3])
+   integer, parameter :: ntens=6, ndi=3,nshr=3,ncrds=3 ! same ntens as in SOLVER
+   integer, parameter :: noel=1 , npt=1,layer=1,kspt=1,lrebar=1
+   character(len=80), parameter :: rebarn ='xxx'
+   real(dp) :: dtime,temp,dtemp,sse,spd,scd,rpl,drpldt,pnewdt,celent
+   real(dp) :: stress(ntens),&
       ddsdde(ntens,ntens),ddsddt(ntens),drplde(ntens),&
       stran(ntens),dstran(ntens),time(2),predef(1),dpred(1),&
       coords(ncrds),drot(3,3),dfgrd0(3,3),dfgrd1(3,3)
@@ -70,38 +71,38 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
    logical :: verbose
    ! logical :: EXITNOW, existCond,okSplit                             ! AN 2016 ! WaveHello: ExitNow (bool) conflicts with the function
    logical :: existCond,okSplit
-   real(8), dimension(6,6)  :: cMt , cMe
-   real(8), dimension(6)  :: mb, mbinc
+   real(dp), dimension(6,6)  :: cMt , cMe
+   real(dp), dimension(6)  :: mb, mbinc
 
 
    integer :: mImport, columnsInFile(7),every,ievery                 ! AN 2016
-   real(8) ::  importFactor(7)
-   real(8),dimension(20) :: oldState, newState,dState
-   real(8), allocatable :: props(:), statev(:), r_statev(:)
+   real(dp) ::  importFactor(7)
+   real(dp),dimension(20) :: oldState, newState,dState
+   real(dp), allocatable :: props(:), statev(:), r_statev(:)
 
-   real(8),dimension(3,3):: Qb33,eps33,T33
+   real(dp),dimension(3,3):: Qb33,eps33,T33
 
    integer:: ifstress(ntens), maxiter, ninc,kiter, ikeyword, &
       iRepetition, nRepetitions, kStep,iStep,nSteps,ntens_in
 
-   real(8):: r_stress(ntens),a_dstress(ntens),u_dstress(ntens),&
+   real(dp):: r_stress(ntens),a_dstress(ntens),u_dstress(ntens),&
       stress_Rosc(ntens),r_stress_Rosc(ntens),           &
       ddstress(ntens), c_dstran(ntens) ,                 &
       deltaLoadCirc(6),phase0(6),deltaLoad(9),           &
       dstran_Cart(6), ddsdde_bar(6,6), deltaTime,        &
       deltaTemp
-   real(8),parameter :: sq3=1.7320508075688772935d0,&
+   real(dp),parameter :: sq3=1.7320508075688772935d0,&
       sq6=2.4494897427831780982d0,&
       sq2=1.4142135623730950488d0,&
       Pi =3.1415926535897932385d0
-   real(8),parameter :: i3=0.3333333333333333333d0,&
+   real(dp),parameter :: i3=0.3333333333333333333d0,&
       i2=0.5d0,                  &
       isq2=1/sq2,                &
       isq3=1.0d0/sq3,            &
       isq6=1.0d0/sq6
 
    !  M for isomorphic Roscoe variables P,Q,Z,....
-   real(8), parameter,dimension(1:6,1:6)::MRoscI=reshape( &
+   real(dp), parameter,dimension(1:6,1:6)::MRoscI=reshape( &
       (/-isq3,-2.0d0*isq6,0.0d0,  0.0d0, 0.0d0, 0.0d0,     &
       -isq3, isq6,      -isq2,  0.0d0, 0.0d0, 0.0d0,  &
       -isq3, isq6,       isq2,  0.0d0, 0.0d0, 0.0d0,  &
@@ -110,10 +111,10 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       0.0d0, 0.0d0,     0.0d0, 0.0d0, 0.0d0, 1.0d0/),&
       (/6,6/))
 
-   real(8), parameter,dimension(1:6,1:6)::MRoscImT=MRoscI            !  latest $\cM^{-T}$ (is orthogonal)
+   real(dp), parameter,dimension(1:6,1:6)::MRoscImT=MRoscI            !  latest $\cM^{-T}$ (is orthogonal)
 
    !  M for isomorphic Rendulic $ sigma_{11}= -T_{11}$,  $sigma_{22}  = -(T_{22} + T_{33}) / \sqrt(2) $,  $ Z= \dots$
-   real(8), parameter,dimension(1:6,1:6)::MRendul=reshape( &
+   real(dp), parameter,dimension(1:6,1:6)::MRendul=reshape( &
       (/ -1.0d0, 0.0d0,  0.0d0,  0.0d0,0.0d0,0.0d0,         &
       0.0d0, -isq2,  -isq2,  0.0d0,0.0d0,0.0d0,       &
       0.0d0, -isq2,   isq2,  0.0d0,0.0d0,0.0d0,       &
@@ -122,10 +123,10 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       0.0d0,  0.0d0, 0.0d0,  0.0d0,0.0d0,1.0d0/),     &
       (/6,6/))
 
-   real(8), parameter,dimension(1:6,1:6)::MRendulmT=MRendul          !  latest  $\cM^{-T}$   (is orthogonal)
+   real(dp), parameter,dimension(1:6,1:6)::MRendulmT=MRendul          !  latest  $\cM^{-T}$   (is orthogonal)
 
    !  M for Roscoe variables $p,q,z,....$
-   real(8), parameter,dimension(1:6,1:6)::MRosc=reshape( &
+   real(dp), parameter,dimension(1:6,1:6)::MRosc=reshape( &
       (/-i3,-1.0d0, 0.0d0,    0.0d0,0.0d0,0.0d0,          &
       -i3, i2, -1.0d0,      0.0d0,0.0d0,0.0d0,       &
       -i3,i2, 1.0d0,       0.0d0,0.0d0,0.0d0,       &
@@ -135,7 +136,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       (/6,6/))
 
    !  latest  $\cM^{-T}$   (is not orthogonal)
-   real(8), parameter,dimension(1:6,1:6)::MRoscmT=reshape( &
+   real(dp), parameter,dimension(1:6,1:6)::MRoscmT=reshape( &
       (/-1.0d0, -2.0d0*i3, 0.0d0,  0.0d0, 0.0d0,0.0d0,     &
       -1.0d0,   i3,      -i2,    0.0d0,0.0d0,0.0d0,       &
       -1.0d0,   i3,       i2,    0.0d0,0.0d0,0.0d0,       &
@@ -145,7 +146,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       (/6,6/))
 
    !  M for Cartesian coords $T_{11}, T_{22}, T_{33}, T_{12},.....$
-   real(8), parameter,dimension(1:6,1:6)::MCart=reshape( &
+   real(dp), parameter,dimension(1:6,1:6)::MCart=reshape( &
       (/ 1.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0,    &
       0.0d0, 1.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0,   &
       0.0d0, 0.0d0, 1.0d0, 0.0d0, 0.0d0, 0.0d0,   &
@@ -154,20 +155,20 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 1.0d0/), &
       (/6,6/))
 
-   real(8), parameter,dimension(1:6,1:6)::MCartmT=MCart              !  latest  $\cM^{-T}$  (is orthogonal)
+   real(dp), parameter,dimension(1:6,1:6)::MCartmT=MCart              !  latest  $\cM^{-T}$  (is orthogonal)
 
 
-   real(8),dimension(1:6,1:6)::M,MmT                                 !  currrent $\cM$ and $\cM^{-T}$  for a given iStep
-   real(8) :: aux1,aux2
+   real(dp),dimension(1:6,1:6)::M,MmT                                 !  currrent $\cM$ and $\cM^{-T}$  for a given iStep
+   real(dp) :: aux1,aux2
 
    type descriptionOfStep
       integer:: ninc,maxiter, ifstress(ntens),columnsInFile(7),mImport ! AN 2016
-      real(8) :: deltaLoadCirc(ntens),phase0(ntens),deltaLoad(9),    &
+      real(dp) :: deltaLoadCirc(ntens),phase0(ntens),deltaLoad(9),    &
          dfgrd0(3,3), dfgrd1(3,3),deltaTime, importFactor(7),&
          deltaTemp                                            ! AN 2023 temperat
       character(40) :: keyword2, keyword3, exitCond,ImportFileName    ! AN 2016
-      real(8),dimension(1:6,1:6) :: cMt, cMe
-      real(8),dimension(1:6) :: mbinc
+      real(dp),dimension(1:6,1:6) :: cMt, cMe
+      real(dp),dimension(1:6) :: mbinc
       logical::existCond                                              ! AN 2016
    end type  descriptionOfStep
 
@@ -177,7 +178,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       integer:: kblank,nrec,kReversal, ncol
       integer,dimension(100) :: Reversal
       integer,dimension(6):: isig
-      real(8),dimension(6) :: sigFac
+      real(dp),dimension(6) :: sigFac
    end type StressAlignment
 
    type(StressAlignment) :: align
@@ -313,12 +314,12 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
             ! write to the screen before the first increment
             ! WaveHello: Replacing this format
             write(*,'(A,I3,A,I3,A,I5,A,I2,A,F9.4,A,F9.4)') &
-            ' ikeyword = ', ikeyword, &
-            ' kstep = ', kstep, &
-            ' kinc = ', kinc, &
-            ' kiter = ', kiter, &
-            ' TEMP = ', TEMP, &
-            ' TIME = ', TIME(1)
+               ' ikeyword = ', ikeyword, &
+               ' kstep = ', kstep, &
+               ' kinc = ', kinc, &
+               ' kiter = ', kiter, &
+               ' TEMP = ', TEMP, &
+               ' TIME = ', TIME(1)
             if(iRepetition > 1) then  ! while repeating  recall the loading parameters of the repeated step read in during the first iRepetition
                ninc             = ofStep(istep)%ninc
                maxiter          = ofStep(istep)%maxiter
@@ -691,12 +692,12 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
 
                   if((kiter==maxiter) .and. mod(kinc,10)==0 .and. verbose ) then    ! write to screen after each increment
                      write(*, '(A,I3,A,I3,A,I5,A,I2,A,F9.4,A,F9.4)') &
-                              ' ikeyword = ', ikeyword, &
-                              ' kstep = ', kStep, &
-                              ' kinc = ', kinc, &
-                              ' kiter = ', kiter, &
-                              ' TEMP = ', TEMP, &
-                              ' TIME = ', TIME(1)
+                        ' ikeyword = ', ikeyword, &
+                        ' kstep = ', kStep, &
+                        ' kinc = ', kinc, &
+                        ' kiter = ', kiter, &
+                        ' TEMP = ', TEMP, &
+                        ' TIME = ', TIME(1)
                   endif
 
 95             continue !--------------------end of Equilibrium Iteration
@@ -798,7 +799,7 @@ contains !========================================================
    !   contained in program\_that\_calls\_umat writes a 6x6 matrix for debugging with Mma
    subroutine write66(a)
       implicit none
-      real(8),dimension(6,6) :: a,aT
+      real(dp),dimension(6,6) :: a,aT
       aT = Transpose(a)
       open(12,file='nic.m',access='append')
       write(12,'(6ha66={ ,( 2h{  ,5(f15.4,2h,  ),f15.4, 3h}, ))' ) aT
@@ -808,7 +809,7 @@ contains !========================================================
    !   contained in program\_that\_calls\_umat writes a 6x1 matrix  for debugging with Mma
    subroutine write6(a)
       implicit none
-      real(8), dimension(6) :: a
+      real(dp), dimension(6) :: a
       open(12,file='nic.m',access='append')
       write(12,'( 5hx6={ , 5(f15.4,2h,  ),f15.4, 3h}  )' ) a
       close(12)
@@ -818,10 +819,10 @@ contains !========================================================
    !   contained in  program\_that\_calls\_umat converts D(3,3)  to stran(6)
    function map2stran(a,ntens)
       implicit none             !===converts D(3,3)  to stran(6) with $\gamma_{12} = 2 \epsilon_{12}$ etc.
-      real(8), intent(in), dimension(1:3,1:3) :: a
+      real(dp), intent(in), dimension(1:3,1:3) :: a
       integer, intent(in) :: ntens
-      real(8),  dimension(1:ntens) :: map2stran
-      real(8), dimension(1:6) :: b
+      real(dp),  dimension(1:ntens) :: map2stran
+      real(dp), dimension(1:6) :: b
       b =[a(1,1),a(2,2),a(3,3),2*a(1,2),2*a(1,3),2*a(2,3)]
       map2stran(1:ntens)=b(1:ntens)
    end function map2stran
@@ -829,10 +830,10 @@ contains !========================================================
    !   contained in  program\_that\_calls\_umat converts strain rate from vector dstran(1:ntens) to  D(3,3)
    function map2D(a,ntens)
       implicit none
-      real(8),  dimension(1:3,1:3) :: map2D
+      real(dp),  dimension(1:3,1:3) :: map2D
       integer, intent(in) :: ntens
-      real(8), intent(in), dimension(:) :: a
-      real(8),dimension(1:6) :: b = 0
+      real(dp), intent(in), dimension(:) :: a
+      real(dp),dimension(1:6) :: b = 0
       b(1:ntens) = a(1:ntens)
       map2D = reshape( [b(1), b(4)/2, b(5)/2, b(4)/2,b(2),b(6)/2, b(5)/2,b(6)/2, b(3)],[3,3] )
    end function map2D
@@ -840,10 +841,10 @@ contains !========================================================
    !   contained in  program\_that\_calls\_umat converts tensor T(3,3)  to matrix stress(ntens)
    function map2stress(a,ntens)
       implicit none
-      real(8), intent(in), dimension(1:3,1:3) :: a
+      real(dp), intent(in), dimension(1:3,1:3) :: a
       integer, intent(in) :: ntens
-      real(8),  dimension(1:ntens) :: map2stress
-      real(8), dimension(1:6) :: b
+      real(dp),  dimension(1:ntens) :: map2stress
+      real(dp), dimension(1:6) :: b
       b = [a(1,1),a(2,2),a(3,3),a(1,2),a(1,3),a(2,3)]
       map2stress = b(1:ntens)
    end function map2stress
@@ -851,10 +852,10 @@ contains !========================================================
    !   contained in  program\_that\_calls\_umat converts matrix stress(1:ntens)  to tensor T(3,3)
    function map2T(a,ntens)
       implicit none
-      real(8),  dimension(1:3,1:3) :: map2T
+      real(dp),  dimension(1:3,1:3) :: map2T
       integer, intent(in) :: ntens
-      real(8), intent(in), dimension(:) :: a
-      real(8), dimension(1:6) :: b= 0
+      real(dp), intent(in), dimension(:) :: a
+      real(dp), dimension(1:6) :: b= 0
       b(1:ntens) = a(1:ntens)
       map2T = reshape( [b(1),b(4),b(5), b(4),b(2),b(6),  b(5),b(6),b(3) ],[3,3] )
    end function map2T
@@ -889,8 +890,8 @@ contains !========================================================
    subroutine  tryAlignStress(align, kinc, aState, mImport,stress,ntens)
       implicit none
       integer:: mImport,kinc,ntens,ie
-      real(8) :: aState(mImport)
-      real(8) :: stress(ntens)
+      real(dp) :: aState(mImport)
+      real(dp) :: stress(ntens)
       type(StressAlignment) :: align
 
       if(.not. align%active) return
@@ -898,8 +899,8 @@ contains !========================================================
 
       ! only  stress components for which isig(ie) /= 0 will be aligned
       forall(ie=1:ntens, align%isig(ie) /= 0) stress(ie)= aState( align%isig(ie))*align%sigFac(ie)
-         return
-      end subroutine  tryAlignStress
+      return
+   end subroutine  tryAlignStress
 
-   end program that_calls_umat
+end program that_calls_umat
 

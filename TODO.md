@@ -11,4 +11,4 @@ The plan is to modernize this library so that it can more easily be integrated w
 * Move the code into more modular files while running the tests
 * Update the code to a more modern standard
 * Check the math and add citations to references to justify the calculations
-* 
+* Look through the kayenta manual and make sure that it somewhat matches what is going on here.
