@@ -10,6 +10,7 @@ module mod_constants
     integer, parameter :: max_mater_len = 80 !! Max material name length
     integer, parameter :: voight_len = 6     !! Length of the voight vector
     integer, parameter :: max_head_len = 260 !! max heading length
+    integer, parameter :: lower_limit_max_iter = 5 !! Lowest allowed iterations for stress conditions
     ! real(dp), parameter:: pi = pi_dp
 contains
     

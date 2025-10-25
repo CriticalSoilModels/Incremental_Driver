@@ -49,6 +49,9 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
    use mod_file_io, only: read_parameter_file, read_init_conditions_file, set_output_name_from_test_file, &
       write_line_output_data, write_output_file_header
    use mod_alignment, only: readAlignment, tryAlignStress
+   use mod_loads
+   use mod_maps
+   !!TODO: Add the only statements for the module imports
 
    implicit none
 
@@ -145,7 +148,6 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       read(test_file_id,'(a)',end=999) keywords(1)
 
       keywords(1) = trim( keywords(1) )
-
       if(keywords(1) == '*Repetition') then
          read(test_file_id,*) nSteps, nRepetitions
       else
@@ -170,6 +172,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                ' kiter = ', kiter, &
                ' TEMP = ', TEMP, &
                ' TIME = ', TIME(1)
+
             if(iRepetition > 1) then  ! while repeating  recall the loading parameters of the repeated step read in during the first iRepetition
                ninc             = ofStep(istep)%ninc
                maxiter          = ofStep(istep)%maxiter
@@ -190,8 +193,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                ImportFileName   = ofStep(istep)%ImportFileName                 ! AN 2016
                mImport          = ofStep(istep)%mImport                        ! AN 2016
                columnsInFile    = ofStep(istep)%columnsInFile                  ! AN 2016   7 integers with numbers of columns  (or value = 0)
-               importFactor     = ofStep(istep)%importFactor                   ! AN 2016   7 real factors to be multiplied with columns
-               goto 10  ! jump over reading, because reading of steps is performed only on the first loop, when iRepetition==1
+               importFactor     = ofStep(istep)%importFactor                   ! AN 2016   7 real factors to be multiplied with columns  ! jump over reading, because reading of steps is performed only on the first loop, when iRepetition==1
             endif
 
             if(keywords(1) == '*Repetition') read(1,'(a)') keywords(2)          ! = *LinearLoad  or *CirculatingLoad or *ObeyRestrictions...
@@ -199,7 +201,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
 
             call splitaLine(keywords(2),'?', keywords(2), exitCond, existCond)  ! AN 2016 look for exit condition in keywords(2)
 
-            keywords(2)  = trim(keywords(2))
+            keywords(2)  = trim(keywords(2)) ! Trim the test name
 
             ifstress(:)=0                                                      ! default strain control
             deltaLoadCirc(:)=0.0d0                                             ! default zero step increment
@@ -209,184 +211,87 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
             dfgrd0 = delta
             dfgrd1 = delta
 
-
             if(keywords(2) == '*DeformationGradient') then
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016 ! AN 2023 temperat
-               keywords(3) = '*Cartesian'
-               do i=1,9
-                  read(1,*)  deltaLoad(i)                                      !  dload means total change in the whole step here
-               enddo
-               goto 10
-            endif
-            if (keywords(2) == '*CirculatingLoad') then
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)        ! AN 2016  read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
 
-               read(1,*) keywords(3)                                           !  = Cartesian or Roscoe  or RoscoeIsomorph or Rendulic
-               keywords(3)  = trim(keywords(3))
-               do i=1,6
-                  read(1,*) ifstress(i),deltaLoadCirc(i),phase0(i),deltaLoad(i)   !  dload means amplitude here
-               enddo
-               goto 10
-            endif
-            if(keywords(2) == '*LinearLoad') then
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               read(1,'(a)') keywords(3)
-               do i=1,6
-                  read(1,*) ifstress(i), deltaLoad(i)                           !  dload means total change in the whole step here
-               enddo
-               goto 10
-            endif
-
-            keyword2 = keywords(2)
-            if(keyword2(1:11) == '*ImportFile') then
-               keywords(2) = '*ImportFile'; keyword2 = keyword2(12:)
-               call splitaLine( keyword2,'|',ImportFileName, mString,okSplit)
-               if(.not.okSplit)    stop 'missing | in line *ImportFile'
-               read(mString,*) mImport
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016  read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               read(1,'(a)') keywords(3)
-               columnsInFile(:) = 0; importFactor(:) = 1
-               do i=1,6
-                  read(1,'(a)') aShortLine
-                  call splitaLine(aShortLine,'*',leftLine,rightLine,okSplit )
-                  read(leftLine,*)  ifstress(i), columnsInFile(i)
-                  if(okSplit)  read(rightLine,*)  ImportFactor(i)
-                  !         read(1,*) ifstress(i), columnsInFile(i) , ImportFactor(i)                           !  dload means total change in the whole step here
-               enddo
-               if(deltaTime <= 0) then
-                  read(1,'(a)') aShortLine
-                  call splitaLine(aShortLine,'*',leftLine,rightLine,okSplit)
-                  read(leftLine,*) columnsInFile(7)
-                  if(okSplit)  read(rightLine,*)  ImportFactor(7)
-                  !         read(1,*) columnsInFile(7),  ImportFac(7)
-               endif !deltaTime
-
-               !**********************************************************
-               call readAlignment(align, ImportFileName )
-               !**********************************************************
-
-               goto 10
-            endif
-
-            if(keywords(2) == '*OedometricE1') then
-               keywords(2) = '*LinearLoad'
-               keywords(3) ='*Cartesian'
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               read(1,*)   deltaLoad(1)
-               goto 10
-            endif
-            if(keywords(2) == '*OedometricS1') then
-               keywords(2) = '*LinearLoad'
-               keywords(3) ='*Cartesian'
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               ifstress(1) = 1
-               read(1,*)   deltaLoad(1)
-               goto 10
-            endif
-            if(keywords(2) == '*TriaxialE1') then
-               keywords(2) = '*LinearLoad'
-               keywords(3) ='*Cartesian'
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               read(1,*) deltaLoad(1)
-               ifstress(2:3) = 1
-               goto 10
-            endif
-            if(keywords(2) == '*TriaxialS1') then
-               keywords(2) = '*LinearLoad'
-               keywords(3) ='*Cartesian'
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               read(1,*)   deltaLoad(1)
-               ifstress(1:3) = 1
-               goto 10
-            endif
-            if(keywords(2) == '*TriaxialUEq') then
-               keywords(2) = '*LinearLoad'
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               keywords(3) ='*Roscoe'
-               read(1,*)   deltaLoad(2)                                      ! = deviatoric strain
-               goto 10
-            endif
-            if(keywords(2) == '*TriaxialUq') then
-               keywords(2) = '*LinearLoad'
-               keywords(3) ='*Roscoe'
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016    read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               read(1,*)  deltaLoad(2)                                       ! = deviatoric stress
-               ifstress(2) = 1
-               goto 10
-            endif
-            if(keywords(2) == '*PureRelaxation') then
-               keywords(2) = '*LinearLoad'
-               keywords(3) ='*Cartesian'
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016  read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               goto 10
-            endif
-            if(keywords(2) == '*PureCreep') then
-               keywords(2) = '*LinearLoad'
-               keywords(3) ='*Cartesian'
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)     ! AN 2016 read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               ifstress(:) =  1
-               goto 10
-            endif
-            if(keywords(2) == '*UndrainedCreep') then
-               keywords(2) = '*LinearLoad'
-               keywords(3) ='*Roscoe'
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)      ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               ifstress(2:6) =  1
-               goto 10
-            endif
-            if(keywords(2) == '*ObeyRestrictions') then  ! ======================= *ObeyRestrictions ==================================
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)      ! AN 2016    read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               do i=1,6
-                  read(1,'(a)')  inputline(i)  !=== a line of form  ''-sd1 + sd2 + 3.0*sd3 = -10  ! a comment '' is expected
-                  if(index(inputline(i),'=')== 0) stop 'restr without "=" '
-               enddo
-               call parser(inputline, cMt,cMe,mb )
-               mbinc = mb/ninc
-               keywords(3) ='*Cartesian'
-               ifstress(1:6) = 1            !=== because  we solve (cMt.ddsdde + cMe).dstran = mbinc for dstran
-               goto 10
-            endif
-            if(keywords(2) == '*PerturbationsS') then
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)       ! AN 2016     read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               deltaTemp = 0   ! AN 2023 temperat
-               read(1,*) keywords(3)  ! = *Rendulic  or *RoscoeIsomorph
-               keywords(3) = trim( keywords(3) )
-               if(keywords(3) .ne. '*Rendulic' .and. &
-                  keywords(3) .ne. '*RoscoeIsomorph') &
-                  write(*,*) 'warning: non-Isomorphic perturburbation'
-               read(1,*)  deltaLoad(1)
-               ifstress(1:6) =  1
-               goto 10
-            endif
-            if(keywords(2) == '*PerturbationsE') then
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)    ! AN 2016      read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
-               deltaTemp = 0  ! AN 2023 temperat
-               read(1,*) keywords(3)
-               keywords(3) = trim( keywords(3) )
-               if(keywords(3) .ne. '*Rendulic' .and.  &
-                  keywords(3) .ne. '*RoscoeIsomorph') &
-                  write(*,*) 'warning: Anisomorphic perturburbation'
-               read(1,*) deltaLoad(1)
-               goto 10
-            endif
-
-            if(keywords(2) == '*RandomWalk') then                         ! AN 2019
-               call ReadStepCommons(1,ninc,maxiter,deltaTime,deltaTemp,every)   ! AN 2023 temperat
-               deltaTemp = 0  ! AN 2023 temperat
-               read(1,*) keywords(3)
-               keywords(3) = trim( keywords(3) )
-               do i=1,6
-                  read(1,*) ifstress(i),deltaLoad(i)    !  dload means max abs value of to be multiplied by random in (-1,1)
-               enddo
-               goto 10
-            endif
+               call read_deformation_gradient_load(test_file_id, ninc, maxiter, deltaTime, &
+                  deltaTemp, every, keywords(3), deltaLoad)
 
 
-            if(keywords(2) == '*End') stop '*End encountered in test.inp'
-            write(*,*) 'error: unknown keywords(2)=',keywords(2)
-            stop 'stopped by unknown keyword(2) in test.inp'
+            else if (keywords(2)=='*CirculatingLoad') then
+               call read_circulating_load(test_file_id, ninc, maxiter, deltaTime, &
+                  deltaTemp, every, keywords(3), deltaLoad, ifstress, deltaLoadCirc, &
+                  phase0)
 
-10          keywords(3) = trim(keywords(3))
+            else if(keywords(2)=='*LinearLoad') then
+               call read_linear_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, every, &
+                  keywords(3), ifstress, deltaLoad)
+
+            else if(keyword2(1:11) == '*ImportFile') then
+               !! TODO: Check that this isn't broken. The load file id thing is funky.
+               !! Not sure if the id is required in the main program. I don't think it's required?
+               !! This is probably broken
+               call read_file_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+                  every, keywords, ifstress, columnsInFile, importFactor, &
+                  ImportFileName, align)
+
+            else if(keywords(2) == '*OedometricE1') then
+               call read_oedometric_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+                  every, keywords(2), keywords(3), deltaload(1))
+
+            else if(keywords(2) == '*OedometricS1') then
+               call read_oedometric_S1_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+                  every, keywords(2), keywords(3), deltaLoad(1), ifstress(1))
+
+            else if(keywords(2) == '*TriaxialE1') then
+               call read_triaxial_e1_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+                  every, keywords(2), keywords(3), deltaLoad(1), ifstress(2:3))
+
+            else if(keywords(2) == '*TriaxialS1') then
+               call read_triaxial_s1_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+                  every, keywords(2), keywords(3), deltaLoad(1), ifstress(1:3))
+
+            else if(keywords(2) == '*TriaxialUEq') then
+               call read_triaxial_ueq_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+               every, keywords(2), keywords(3), deltaLoad(2))
+               
+            else if(keywords(2) == '*TriaxialUq') then
+               call read_triaxial_uq_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+               every, keywords(2), keywords(3), deltaLoad(2), ifstress(2))
+
+            else if(keywords(2) == '*PureRelaxation') then
+               call read_pure_relaxation_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+               every, keywords(2), keywords(3))
+
+            else if(keywords(2) == '*PureCreep') then
+               call read_pure_creep_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+               every, keywords(2), keywords(3), ifstress)
+
+            else if(keywords(2) == '*UndrainedCreep') then
+               call read_undrained_creep(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+               every, keywords(2), keywords(3), ifstress)
+
+            else if(keywords(2) == '*ObeyRestrictions') then  ! ======================= *ObeyRestrictions ==================================
+               call read_obey_restrictions_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+               every, keywords(3), ifstress, cMt, cMe, mb, mbinc)
+
+            else if(keywords(2) == '*PerturbationsS') then
+               call read_perturbations_S_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+               every, keywords(3), deltaLoad(1), ifstress)
+
+            else if(keywords(2) == '*PerturbationsE') then
+               call read_perturbations_E_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+               every, keywords(3), deltaLoad(1), ifstress)
+
+            else if(keywords(2) == '*RandomWalk') then                         ! AN 2019
+               call read_random_walk_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
+               every, keywords(3), deltaLoad, ifstress)
+            else
+               if(keywords(2) == '*End') stop '*End encountered in test.inp'
+               write(*,*) 'error: unknown keywords(2)=',keywords(2)
+               stop 'stopped by unknown keyword(2) in test.inp'
+            end if
+
+            keywords(3) = trim(keywords(3))
 
             if(keywords(1) == '*Repetition' .and. iRepetition == 1) then      !  remember the description of step for the next repetition
                ofStep(istep)%ninc          =    ninc
@@ -412,10 +317,10 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                ofStep(istep)%importFactor   =   importFactor               ! AN 2016
             endif
 
-            if(any(ifstress==1)) maxiter = max(maxiter,5)                    ! at least 5 iterations
+            if(any(ifstress==1)) maxiter = max(maxiter,lower_limit_max_iter)  ! at least 5 iterations
             if(all(ifstress==0) .and. keywords(2) .ne. '*ObeyRestrictions') maxiter = 1  ! no iterations are necessary
 
-!     start the current step with zero-load call of umat() just to get the stiffness
+            ! start the current step with zero-load call of umat() just to get the stiffness
             dstran(:)=0
             dtime=0
             dtemp=0
@@ -431,14 +336,13 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
             statev(:)=r_statev(:);  stress(:)=r_stress(:)   !  AN 21.06.2017 recover stress and state  although the ZERO call of umat should not modify them
 
             select case( keywords(3) )
-             case('*Cartesian' ) ;      M =  MCart   ;    MmT = MCartmT
+             case('*Cartesian' ) ;      M =  MCart ; MmT = MCartmT
              case('*Roscoe')     ;      M = MRosc  ; MmT = MRoscmT
-             case('*RoscoeIsomorph');   M = MRoscI ;  MmT = MRoscImT
-             case('*Rendulic')      ;   M = MRendul;   MmT = MRendulmT
+             case('*RoscoeIsomorph');   M = MRoscI ; MmT = MRoscImT
+             case('*Rendulic')      ;   M = MRendul; MmT = MRendulmT
              case default ;   write(*,*) 'Unknown keyword = ', keywords(3)
                stop  ' stopped by unknown keywords(3) in test.inp'
             end select
-
 
             if(keywords(2) == '*ImportFile' ) then                           ! AN 2016
                open(3,file=ImportFileName, status ='old', err=905)            ! AN 2016
@@ -447,6 +351,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                   hugeLine= adjustL(hugeLine) ; aChar = hugeLine(1:1)         ! AN 2016
                   if(index('1234567890+-.',aChar) > 0) exit                  ! preceding non-numeric lines in ImportFile will be ignored
                enddo
+
                read(hugeLine,*,err=907) oldState(1:mImport)                  ! AN 2016
             endif
 
@@ -615,71 +520,8 @@ contains !========================================================
    !  contained in program\_that\_calls\_umat that reads the command line
 
 
-   !   contained in program\_that\_calls\_umat writes a 6x6 matrix for debugging with Mma
-   subroutine write66(a)
-      implicit none
-      real(dp),dimension(6,6) :: a,aT
-      aT = Transpose(a)
-      open(12,file='nic.m',access='append')
-      write(12,'(6ha66={ ,( 2h{  ,5(f15.4,2h,  ),f15.4, 3h}, ))' ) aT
-      close(12)
-   end subroutine write66
+  
 
-   !   contained in program\_that\_calls\_umat writes a 6x1 matrix  for debugging with Mma
-   subroutine write6(a)
-      implicit none
-      real(dp), dimension(6) :: a
-      open(12,file='nic.m',access='append')
-      write(12,'( 5hx6={ , 5(f15.4,2h,  ),f15.4, 3h}  )' ) a
-      close(12)
-   end subroutine write6
-
-
-   !   contained in  program\_that\_calls\_umat converts D(3,3)  to stran(6)
-   function map2stran(a,ntens)
-      implicit none             !===converts D(3,3)  to stran(6) with $\gamma_{12} = 2 \epsilon_{12}$ etc.
-      real(dp), intent(in), dimension(1:3,1:3) :: a
-      integer, intent(in) :: ntens
-      real(dp),  dimension(1:ntens) :: map2stran
-      real(dp), dimension(1:6) :: b
-      b =[a(1,1),a(2,2),a(3,3),2*a(1,2),2*a(1,3),2*a(2,3)]
-      map2stran(1:ntens)=b(1:ntens)
-   end function map2stran
-
-   !   contained in  program\_that\_calls\_umat converts strain rate from vector dstran(1:ntens) to  D(3,3)
-   function map2D(a,ntens)
-      implicit none
-      real(dp),  dimension(1:3,1:3) :: map2D
-      integer, intent(in) :: ntens
-      real(dp), intent(in), dimension(:) :: a
-      real(dp),dimension(1:6) :: b = 0
-      b(1:ntens) = a(1:ntens)
-      map2D = reshape( [b(1), b(4)/2, b(5)/2, b(4)/2,b(2),b(6)/2, b(5)/2,b(6)/2, b(3)],[3,3] )
-   end function map2D
-
-   !   contained in  program\_that\_calls\_umat converts tensor T(3,3)  to matrix stress(ntens)
-   function map2stress(a,ntens)
-      implicit none
-      real(dp), intent(in), dimension(1:3,1:3) :: a
-      integer, intent(in) :: ntens
-      real(dp),  dimension(1:ntens) :: map2stress
-      real(dp), dimension(1:6) :: b
-      b = [a(1,1),a(2,2),a(3,3),a(1,2),a(1,3),a(2,3)]
-      map2stress = b(1:ntens)
-   end function map2stress
-
-   !   contained in  program\_that\_calls\_umat converts matrix stress(1:ntens)  to tensor T(3,3)
-   function map2T(a,ntens)
-      implicit none
-      real(dp),  dimension(1:3,1:3) :: map2T
-      integer, intent(in) :: ntens
-      real(dp), intent(in), dimension(:) :: a
-      real(dp), dimension(1:6) :: b= 0
-      b(1:ntens) = a(1:ntens)
-      map2T = reshape( [b(1),b(4),b(5), b(4),b(2),b(6),  b(5),b(6),b(3) ],[3,3] )
-   end function map2T
-
-   
 
 end program that_calls_umat
 
