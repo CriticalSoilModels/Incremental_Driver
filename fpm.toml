@@ -17,6 +17,8 @@ module-naming = false
 stdlib = {path = "../../stdlib"}
 critical-soil-models = {git = "https://github.com/CriticalSoilModels/critical-soil-models"}
 # fortplot = { git = "https://github.com/krystophny/fortplot" }
+# DataFort = {git = "https://github.com/rngil/DataFort.git"}
+csv-fortran = {git = "https://github.com/jacobwilliams/csv-fortran.git"}
 
 [dev-dependencies]
 # fortplot = { git = "https://github.com/krystophny/fortplot/" }

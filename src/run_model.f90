@@ -43,7 +43,7 @@ module mod_run_model
 
 contains
    subroutine run_model(UMAT)
-      procedure(umat_interface), intent(in) :: UMAT
+      procedure(umat_interface) :: UMAT
 
       real(dp), parameter          :: delta(3,3) = reshape([1,0,0,0,1,0,0,0,1],[3,3])
       integer, parameter           :: ntens=6, ndi=3,nshr=3,ncrds=3 ! same ntens as in SOLVER
@@ -258,10 +258,12 @@ contains
                else if(keywords(2) == '*RandomWalk') then                         ! AN 2019
                   call read_random_walk_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
                      every, keywords(3), deltaLoad, ifstress)
+               else if(keywords(2) == '*End') then
+                  print *, '*End encountered in test.inp'
+                  return
                else
-                  if(keywords(2) == '*End') stop '*End encountered in test.inp'
                   write(*,*) 'error: unknown keywords(2)=',keywords(2)
-                  stop 'stopped by unknown keyword(2) in test.inp'
+                  error stop 'stopped by unknown keyword(2) in test.inp'
                end if
 
                keywords(3) = trim(keywords(3))
