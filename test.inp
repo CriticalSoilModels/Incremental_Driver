@@ -1,0 +1,5 @@
+output.txt
+*OedometricE1
+1000 0 500000 : 10          # ninc maxiter dtime : every
+-0.4          # ddstran_1
+*End

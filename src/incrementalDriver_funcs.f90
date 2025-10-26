@@ -2,6 +2,7 @@
 
 
 module mod_inc_driver_funcs
+   use stdlib_kinds, only: dp
    implicit none
    private
    public :: splitaLine, ReadStepCommons, PARSER, get_increment, USOLVER, EXITNOW
@@ -19,18 +20,18 @@ contains
       implicit none
       character(40):: keywords(10)
       integer, intent(in)  :: ifstress(6),ninc
-      real(8), intent(in) :: time(2), deltaTime, deltaLoadCirc(6),phase0(6), deltaLoad(9), deltaTemp
-      real(8), intent(out) ::  dtime, ddstress(6), dstran(6), Qb33(3,3), dTemp
-      real(8), intent(in out) ::  dfgrd0(3,3), dfgrd1(3,3), drot(3,3)
+      real(dp), intent(in) :: time(2), deltaTime, deltaLoadCirc(6),phase0(6), deltaLoad(9), deltaTemp
+      real(dp), intent(out) ::  dtime, ddstress(6), dstran(6), Qb33(3,3), dTemp
+      real(dp), intent(in out) ::  dfgrd0(3,3), dfgrd1(3,3), drot(3,3)
 
 
-      real(8), parameter :: Pi = 3.1415926535897932385d0
-      real(8),parameter,dimension(3,3):: delta = reshape((/1,0,0,0,1,0,0,0,1/),(/3,3/))
-      real(8),dimension(3,3):: Fb,Fbb, dFb,aux33,dLb,depsb,dOmegab
-      real(8):: wd(6),  & ! angular velocity (in future individual for each component)
+      real(dp), parameter :: Pi = 3.1415926535897932385d0
+      real(dp),parameter,dimension(3,3):: delta = reshape((/1,0,0,0,1,0,0,0,1/),(/3,3/))
+      real(dp),dimension(3,3):: Fb,Fbb, dFb,aux33,dLb,depsb,dOmegab
+      real(dp):: wd(6),  & ! angular velocity (in future individual for each component)
          w0(6),  & ! initial phase shift for a component
          t         ! step time
-      real(8) :: arandom
+      real(dp) :: arandom
       integer(4) :: i
       logical :: ok
 
@@ -43,19 +44,19 @@ contains
       dfgrd0=delta
       dfgrd1=delta
 
-!------------------------------------------------------
+      !------------------------------------------------------
       if(keywords(2) == '*LinearLoad') then                               !  proportional loading
          do i=1,6
             if (ifstress(i)==1)   ddstress(i) = deltaLoad(i)/ ninc
             if (ifstress(i)==0)    dstran(i) = deltaLoad(i)/ ninc              ! log strain -> corresp. displac. inc. not constant
          enddo
-! here dfgrd0 and dfgrd1   can be defined from stran assuming polar decomposition F=V.R with R=1  and V = exp(stran)
-! for dfgrd0 use stran
-! for dfgrd1 use stran-dstran
+         ! here dfgrd0 and dfgrd1   can be defined from stran assuming polar decomposition F=V.R with R=1  and V = exp(stran)
+         ! for dfgrd0 use stran
+         ! for dfgrd1 use stran-dstran
       endif
-!--------------------------------------------------
+      !--------------------------------------------------
       if(keywords(2) == '*DeformationGradient') then                     ! full deformation gradient.
-! finite rotations calculated after Hughes+Winget 1980
+         ! finite rotations calculated after Hughes+Winget 1980
          Fb = reshape((/deltaLoad(1), deltaLoad(5), deltaLoad(7),  &
             deltaLoad(4), deltaLoad(2), deltaLoad(9),    &
             deltaLoad(6), deltaLoad(8), deltaLoad(3)/),  &
@@ -67,19 +68,19 @@ contains
          aux33 =  Fbb + dFb/2.0d0
          dfgrd1   = Fbb  + dFb
 
-!  call matrix('inverse', aux33, 3, ok )
+         !  call matrix('inverse', aux33, 3, ok )
          aux33 = inv33(aux33)
          dLb =  matmul(dFb,aux33)
          depsb = 0.5d0*(dLb + transpose(dLb))
          dstran=(/depsb(1,1), depsb(2,2),depsb(3,3), 2.0d0*depsb(1,2),2.0d0*depsb(1,3),2.0d0*depsb(2,3)/)
          dOmegab =    0.5d0*(dLb - transpose(dLb))
          aux33 =  delta - 0.5d0*dOmegab
-!     call matrix('inverse', aux33, 3, ok )
+         !     call matrix('inverse', aux33, 3, ok )
          aux33 = inv33(aux33)
          Qb33 = matmul(aux33, (delta+0.5d0*dOmegab))
          drot=Qb33
       endif
-!------------------------------------------------------
+      !------------------------------------------------------
       if(keywords(2) == '*CirculatingLoad' )then                         !  harmonic oscillation
          wd(:) = 2*Pi/deltaTime
          w0 = phase0
@@ -88,27 +89,27 @@ contains
             if(ifstress(i)==1) ddstress(i)= dtime * deltaLoadCirc(i) * wd(i) * Cos(wd(i) * t + w0(i)) + deltaLoad(i)/ ninc
             if(ifstress(i)==0) dstran(i)  = dtime * deltaLoadCirc(i) * wd(i) * Cos(wd(i) * t + w0(i)) + deltaLoad(i)/ ninc
          enddo
-! here dfgrd0 and dfgrd1   can be defined from stran assuming polar decomposition F=V.R with R=1  and V = exp(stran)
-! for dfgrd0 use stran
-! for dfgrd1 use stran-dstran
+         ! here dfgrd0 and dfgrd1   can be defined from stran assuming polar decomposition F=V.R with R=1  and V = exp(stran)
+         ! for dfgrd0 use stran
+         ! for dfgrd1 use stran-dstran
       endif
 
-!--------------------------------------------------------
+      !--------------------------------------------------------
       if(keywords(2) == '*PerturbationsS' )then
          ddstress(1)= deltaLoad(1)*cos( time(1)*2*Pi/deltaTime )
          ddstress(2)= deltaLoad(1)*sin( time(1)*2*Pi/deltaTime  )
-! here dfgrd0 and dfgrd1   can be defined from stran assuming polar decomposition F=V.R with R=1  and V = exp(stran)
-! for dfgrd0 use stran
-! for dfgrd1 use stran-dstran
+         ! here dfgrd0 and dfgrd1   can be defined from stran assuming polar decomposition F=V.R with R=1  and V = exp(stran)
+         ! for dfgrd0 use stran
+         ! for dfgrd1 use stran-dstran
       endif
 
-!--------------------------------------------------------
+      !--------------------------------------------------------
       if(keywords(2) == '*PerturbationsE' )then
          dstran(1)= deltaLoad(1)*cos( time(1)*2*Pi/deltaTime )
          dstran(2)= deltaLoad(1)*sin( time(1)*2*Pi/deltaTime  )
-! here dfgrd0 and dfgrd1   can be defined from stran assuming polar decomposition F=V.R with R=1  and V = exp(stran)
-! for dfgrd0 use stran
-! for dfgrd1 use stran-dstran
+         ! here dfgrd0 and dfgrd1   can be defined from stran assuming polar decomposition F=V.R with R=1  and V = exp(stran)
+         ! for dfgrd0 use stran
+         ! for dfgrd1 use stran-dstran
       endif
 
       if(keywords(2) == '*RandomWalk' )then
@@ -124,13 +125,13 @@ contains
 
    contains !=======================================================
 
-!  contained in get\_increment inverts a 3x3 matrix
+      !  contained in get\_increment inverts a 3x3 matrix
       function inv33( a )  !==================contained in get\_increment
          implicit none
-         real(8), dimension(3,3), intent(in) :: a
-         real(8), dimension(3,3) :: b
-         real(8), dimension(3,3) :: inv33
-         real(8) :: det
+         real(dp), dimension(3,3), intent(in) :: a
+         real(dp), dimension(3,3) :: b
+         real(dp), dimension(3,3) :: inv33
+         real(dp) :: det
          det = - a(1,3)*a(2,2)*a(3,1) + a(1,2)*a(2,3)*a(3,1) &
             + a(1,3)*a(2,1)*a(3,2) - a(1,1)*a(2,3)*a(3,2) &
             - a(1,2)*a(2,1)*a(3,3) + a(1,1)*a(2,2)*a(3,3)
@@ -154,10 +155,10 @@ contains
       implicit none
       integer, intent(in) ::  LSTR,NDI,NSHR
       integer :: ntens
-      real(8), dimension(3,3),intent(in) ::  R
-      real(8), dimension(1:NDI+NSHR), intent(in) :: S
-      real(8), dimension(1:NDI+NSHR) , intent(out):: SPRIME
-      real(8)::  a(6), b(3,3)
+      real(dp), dimension(3,3),intent(in) ::  R
+      real(dp), dimension(1:NDI+NSHR), intent(in) :: S
+      real(dp), dimension(1:NDI+NSHR) , intent(out):: SPRIME
+      real(dp)::  a(6), b(3,3)
       ntens = ndi+nshr
       a(:) = 0
       a(1:ntens) = S(:)
@@ -177,11 +178,11 @@ contains
 !    returns  two  stress invariants
    subroutine SINV(STRESS,SINV1,SINV2,NDI,NSHR)
       implicit none
-      real(8),intent(in) :: STRESS(NDI+NSHR)
-      real(8),intent(out) ::  SINV1,SINV2
+      real(dp),intent(in) :: STRESS(NDI+NSHR)
+      real(dp),intent(out) ::  SINV1,SINV2
       integer, intent(in) ::  NDI,NSHR
-      real(8) :: devia(NDI+NSHR)
-      real(8), parameter :: sq2 = 1.4142135623730950488d0
+      real(dp) :: devia(NDI+NSHR)
+      real(dp), parameter :: sq2 = 1.4142135623730950488d0
       if(NDI /= 3) stop 'stopped because ndi/=3 in sinv'
       sinv1 = (stress(1) + stress(2) + stress(3) )/3.0d0
       devia(1:3) = stress(1:3) - sinv1
@@ -189,14 +190,14 @@ contains
       sinv2 = sqrt(1.5d0 *  dot_product(devia, devia)  )
    end subroutine SINV
 
-!    Imitation of utility routine provided by abaqus for people writing  umats
-!    returns  principal values if  LSTR == 1 ->  for stress  or    LSTR == 2 ->   for strain
+   !    Imitation of utility routine provided by abaqus for people writing  umats
+   !    returns  principal values if  LSTR == 1 ->  for stress  or    LSTR == 2 ->   for strain
    subroutine SPRINC(S,PS,LSTR,NDI,NSHR)
       integer, intent(in) :: LSTR,NDI,NSHR
-      real(8),intent(in) :: S(NDI+NSHR)
-      real(8),intent(out) :: PS(NDI+NSHR)
-      real(8):: A(3,3),AN(3,3)
-      real(8) :: r(6)
+      real(dp),intent(in) :: S(NDI+NSHR)
+      real(dp),intent(out) :: PS(NDI+NSHR)
+      real(dp):: A(3,3),AN(3,3)
+      real(dp) :: r(6)
       if(NDI /= 3) stop 'stopped because ndi/=3 in sprinc'
       r(1:3) = s(1:3)
       if(LSTR == 1 .and. nshr > 0) r(4:3+nshr) = s(4:3+nshr)
@@ -206,15 +207,15 @@ contains
       return
    end subroutine SPRINC
 
-!    Imitation of utility routine provided by abaqus for people writing  umats
-!     returns principal directions LSTR == 1 ->   stress  or    LSTR == 2 ->   strain
+   !    Imitation of utility routine provided by abaqus for people writing  umats
+   !     returns principal directions LSTR == 1 ->   stress  or    LSTR == 2 ->   strain
    subroutine SPRIND(S,PS,AN,LSTR,NDI,NSHR)
       implicit none
-      real(8),intent(in) :: S(NDI+NSHR)
-      real(8),intent(out) :: PS(3),AN(3,3)
+      real(dp),intent(in) :: S(NDI+NSHR)
+      real(dp),intent(out) :: PS(3),AN(3,3)
       integer, intent(in) :: LSTR,NDI,NSHR
-      real(8):: A(3,3)
-      real(8) :: r(6)
+      real(dp):: A(3,3)
+      real(dp) :: r(6)
       if(NDI /= 3) stop 'stopped because ndi/=3 in sprind'
       r(1:3) = s(1:3)
       if(LSTR == 1 .and. nshr > 0) r(4:3+nshr) = s(4:3+nshr)
@@ -224,22 +225,22 @@ contains
       return
    end subroutine SPRIND
 
-!    Imitation of quit utility routine provided by abaqus for people writing  umats
+   !    Imitation of quit utility routine provided by abaqus for people writing  umats
    subroutine XIT
       stop 'stopped because umat called XIT'
    end subroutine XIT
 
-!    used by  utility routine SPRINC  or SPRIND
+   !    used by  utility routine SPRINC  or SPRIND
    SUBROUTINE  spectral_decomposition_of_symmetric(A, Lam, G, n)
       implicit none
       integer, intent(in) :: n                                         ! size of the matrix
-      real(8), INTENT(in)  :: A(n,n)                                   ! symmetric input matrix  n x n   (not destroyed in this routine)
-      real(8), INTENT(out)  :: Lam(n)                                  ! eigenvalues
-      real(8), INTENT(out)  :: G(n,n)                                  ! corresponding eigenvectors in columns of G
+      real(dp), INTENT(in)  :: A(n,n)                                   ! symmetric input matrix  n x n   (not destroyed in this routine)
+      real(dp), INTENT(out)  :: Lam(n)                                  ! eigenvalues
+      real(dp), INTENT(out)  :: G(n,n)                                  ! corresponding eigenvectors in columns of G
       integer ::  iter,i, p,q
-      real(8) ::   cosine, sine
-      real(8), dimension(:), allocatable :: pcol ,qcol
-      real(8), dimension(:,:), allocatable :: x
+      real(dp) ::   cosine, sine
+      real(dp), dimension(:), allocatable :: pcol ,qcol
+      real(dp), dimension(:,:), allocatable :: x
 
       allocate(pcol(n) ,qcol(n), x(n,n) )
       x = A
@@ -257,8 +258,8 @@ contains
          G(:,p) =   pcol*cosine - qcol*sine
          G(:,q) =   pcol* sine + qcol *cosine
 
-! here write a problem-oriented accuracy test max\_off\_diagonal < something
-! but 30 iterations are usually ok for 3x3 stress or 6x6 stiffness matrix
+         ! here write a problem-oriented accuracy test max\_off\_diagonal < something
+         ! but 30 iterations are usually ok for 3x3 stress or 6x6 stiffness matrix
       enddo
 
       do i=1,n
@@ -272,11 +273,11 @@ contains
    SUBROUTINE  app_jacobian_similarity(A, p,q, c, s, n)              !  jacobian similarity tranformation of a square symmetric matrix A
       implicit none                                                     !  ( $ A : =  G^T .A . G $ with    Givens   rotation  G\_pq = $\{\{c,s\},\{-s,c\}\}$  )
       INTEGER, INTENT(IN)        :: p,q                                 !   G is an identity n x n matrix overridden with  values  \{\{c,s\},\{-s,c\}\}  )
-      real(8), INTENT(IN)        :: c ,s                                !   in cells $\{\{pp, pq\},\{qp,qq\}\}$  algorithm according to Kielbasinski  p.385
+      real(dp), INTENT(IN)        :: c ,s                                !   in cells $\{\{pp, pq\},\{qp,qq\}\}$  algorithm according to Kielbasinski  p.385
       integer , INTENT(IN)       :: n
-      real(8), dimension(n,n),intent(inout) :: A
-      real(8), dimension(n)  :: prow ,qrow
-      real(8) :: App, Apq, Aqq
+      real(dp), dimension(n,n),intent(inout) :: A
+      real(dp), dimension(n)  :: prow ,qrow
+      real(dp) :: App, Apq, Aqq
 
       if(p == q)  stop 'error: jacobian_similarity  p == q'
       if(p<1 .or. p>n) stop 'error: jacobian_similarity p out of range'
@@ -299,14 +300,14 @@ contains
    END SUBROUTINE  app_jacobian_similarity
 
 
-!    used by  utility routine SPRINC  or SPRIND for iterative diagonalization
+   !    used by  utility routine SPRINC  or SPRIND for iterative diagonalization
    SUBROUTINE  get_jacobian_rot(A, p,q, c, s, n)          !   \com returns jacobian similarity  tranformation param.
       implicit none                                          !  \com  for iterative diagonalization of  a square symm.  A
       integer , INTENT(IN)                :: n               !  \com  algorithm according to Kielbasinski 385-386
-      real(8), dimension(n,n),intent(in) :: A
+      real(dp), dimension(n,n),intent(in) :: A
       INTEGER, INTENT(OUT)                :: p,q
-      real(8), INTENT(OUT)                :: c ,s
-      real(8) :: App, Apq, Aqq, d, t, maxoff
+      real(dp), INTENT(OUT)                :: c ,s
+      real(dp) :: App, Apq, Aqq, d, t, maxoff
       integer ::   i,j
 
       p = 0
@@ -340,7 +341,7 @@ contains
    subroutine ReadStepCommons(file_id, ninc, maxiter,deltaTime, deltaTemp, every)   ! AN 2023 temperat
       !! Read the increments and other information for the load??
       integer, intent(in) :: file_id
-      real(8), intent(out) :: deltaTime, deltaTemp ! increase of time and temperature within the whole step
+      real(dp), intent(out) :: deltaTime, deltaTemp ! increase of time and temperature within the whole step
       integer, intent(out) :: ninc,maxiter,every
       logical ::  okSplit
       character(Len=40)   aShortLine, leftLine, rightLine
@@ -385,20 +386,19 @@ contains
       endif
    end subroutine splitaLine
 
-!------------------------------------------------------------------------------------------
-!  reads a condition (= string cond) and returns true if stress stran and statev satisfy this condition
-!  it is used after each increment of a step. If cond == true then the remaining increments of a step are skipped
    function EXITNOW(cond, stress,stran,statev,nstatv) !--AN 2016-------------------->
+      !!  reads a condition (= string cond) and returns true if stress stran and statev satisfy this condition
+      !!  it is used after each increment of a step. If cond == true then the remaining increments of a step are skipped
       implicit none
       integer, parameter:: ntens=6, mSummands=5
       integer, intent(in):: nstatv
-      real(8), intent(in) :: stress(ntens), stran(ntens),statev(nstatv)
+      real(dp), intent(in) :: stress(ntens), stran(ntens),statev(nstatv)
       character(len=40), intent(in) :: cond
       logical:: EXITNOW
       integer:: i,igt, ilt,iis,imin,iplus,iminus,Nsummands,itimes
       character(len=40) :: inp, rhs, summand(mSummands), aux
-      real(8):: factor(mSummands),fac,x,y
-      real(8), parameter :: sq3  = 1.7320508075689d0, &
+      real(dp):: factor(mSummands),fac,x,y
+      real(dp), parameter :: sq3  = 1.7320508075689d0, &
          sq23 = 0.81649658092773d0
 
 
@@ -491,18 +491,17 @@ contains
       EXITNOW = .False.
    end function  EXITNOW     !<--AN 2016--------------------
 
-!------------------------------------------------------------------------------------------
-!  used to read test.inp when the option *ObeyRestrictions is used
    subroutine  PARSER(inputline, Mt,Me,mb)
+      !!  used to read test.inp when the option *ObeyRestrictions is used
       implicit none
       character(260), intent(in) ::  inputline(6)
-      real(8), dimension(6,6), intent(out) :: Mt , Me
-      real(8), dimension(6),intent(out) :: mb
+      real(dp), dimension(6,6), intent(out) :: Mt , Me
+      real(dp), dimension(6),intent(out) :: mb
 
       character(len=260) ::  inp, aux,aux3
       character(40) ::  summand(13)
       integer :: iis,i,iplus,iminus,iequal,imin,iex,itimes,Irestr,ihash, Nsummands
-      real(8) :: factor(13),fac
+      real(dp) :: factor(13),fac
 
 
       Mt = 0; Me= 0; mb= 0
@@ -580,20 +579,20 @@ contains
       enddo ! Irestr
    end subroutine PARSER
 
-!  solver for unsymmetric matrix and  unknowns on both sides of equation
    subroutine USOLVER(KK,u,rhs,is,ntens) ! 23.7.2008  new usolver with improvement after numerical recipes
-!  \com    KK - stiffness  is not spoiled  within the subroutine
-!  \com    u - strain   rhs - stress
-!  \com    is(i)= 1 means rhs(i) is prescribed,
-!  \com    is(i)= 0  means u(i) is prescribed
+      !  solver for unsymmetric matrix and  unknowns on both sides of equation
+      !  \com    KK - stiffness  is not spoiled  within the subroutine
+      !  \com    u - strain   rhs - stress
+      !  \com    is(i)= 1 means rhs(i) is prescribed,
+      !  \com    is(i)= 0  means u(i) is prescribed
 
       implicit none
-      integer, intent(in):: ntens
-      integer, dimension(1:ntens), intent(in):: is
-      real(8), dimension(1:ntens,1:ntens), intent(in):: KK
-      real(8), dimension(1:ntens), intent(inout)::  u,rhs
-      real(8), dimension(1:ntens):: rhs1
-      real(8), allocatable :: rhsPrim(:), KKprim(:,:), uprim(:)
+      integer, intent(in)                             :: ntens
+      integer, dimension(1:ntens), intent(in)         :: is
+      real(dp), dimension(1:ntens,1:ntens), intent(in) :: KK
+      real(dp), dimension(1:ntens), intent(inout)      ::  u,rhs
+      real(dp), dimension(1:ntens)                     :: rhs1
+      real(dp), allocatable                            :: rhsPrim(:), KKprim(:,:), uprim(:)
       integer ::  i,j,ii,nis
       integer,allocatable :: is1(:)
 
@@ -648,12 +647,12 @@ contains
 !  contained in USOLVER LU-decomposition from NR
       SUBROUTINE ludcmp(a,indx,d)
          IMPLICIT NONE
-         REAL(8), DIMENSION(:,:), INTENT(INOUT) :: a
+         real(dp), DIMENSION(:,:), INTENT(INOUT) :: a
          INTEGER, DIMENSION(:), INTENT(OUT) :: indx
-         REAL(8), INTENT(OUT) :: d
-         REAL(8), DIMENSION(size(a,1)) :: vv ,aux
+         real(dp), INTENT(OUT) :: d
+         real(dp), DIMENSION(size(a,1)) :: vv ,aux
          integer, dimension(1) :: imaxlocs
-         REAL(8), PARAMETER :: TINY=1.0d-20
+         real(dp), PARAMETER :: TINY=1.0d-20
          INTEGER  :: j,n,imax
          n = size(a,1)
          d=1.0
@@ -680,11 +679,11 @@ contains
 !  contained in USOLVER LU-back substitution from NR
       SUBROUTINE lubksb(a,indx,b)
          IMPLICIT NONE
-         REAL(8), DIMENSION(:,:), INTENT(IN) :: a
+         real(dp), DIMENSION(:,:), INTENT(IN) :: a
          INTEGER, DIMENSION(:), INTENT(IN) :: indx
-         REAL(8), DIMENSION(:), INTENT(INOUT) :: b
+         real(dp), DIMENSION(:), INTENT(INOUT) :: b
          INTEGER :: i,n,ii,ll
-         REAL(8) :: summ
+         real(dp) :: summ
          n=size(a,1)
          ii=0
          do i=1,n
@@ -706,11 +705,11 @@ contains
 !  contained in USOLVER  improvement of the accuracy
       SUBROUTINE mprove(a,alud,indx,b,x)
          IMPLICIT NONE
-         REAL(8), DIMENSION(:,:), INTENT(IN) :: a,alud
+         real(dp), DIMENSION(:,:), INTENT(IN) :: a,alud
          INTEGER, DIMENSION(:), INTENT(IN) :: indx
-         REAL(8), DIMENSION(:), INTENT(IN) :: b
-         REAL(8), DIMENSION(:), INTENT(INOUT) :: x
-         REAL(8), DIMENSION(size(a,1)) :: r
+         real(dp), DIMENSION(:), INTENT(IN) :: b
+         real(dp), DIMENSION(:), INTENT(INOUT) :: x
+         real(dp), DIMENSION(size(a,1)) :: r
          r=matmul(a,x)-b
          call lubksb(alud,indx,r)
          x=x-r
@@ -719,13 +718,13 @@ contains
 !  solver contained in USOLVER  for problems with unknowns on the left-hand side
       function xLittleUnsymmetricSolver(a,b)
          IMPLICIT NONE                !==== solves $a . x = b$ \& doesn't spoil a or b
-         REAL(8), DIMENSION(:), intent(inout) :: b
-         REAL(8), DIMENSION(:,:), intent(in) ::  a
-         REAL(8), DIMENSION(size(b,1)) :: x
-         REAL(8), DIMENSION(size(b,1),size(b,1)) ::  aa
+         real(dp), DIMENSION(:), intent(inout) :: b
+         real(dp), DIMENSION(:,:), intent(in) ::  a
+         real(dp), DIMENSION(size(b,1)) :: x
+         real(dp), DIMENSION(size(b,1),size(b,1)) ::  aa
          INTEGER, DIMENSION(1:size(b,1)) :: indx
-         real(8), DIMENSION(1:size(b,1)):: xLittleUnsymmetricSolver
-         REAL(8) :: d
+         real(dp), DIMENSION(1:size(b,1)):: xLittleUnsymmetricSolver
+         real(dp) :: d
          x(:)=b(:)
          aa(:,:)=a(:,:)
          call ludcmp(aa,indx,d)
@@ -749,5 +748,24 @@ contains
       CALL EXIT(5)                                       ! AN 2016
    end subroutine stopp                             ! AN 2016
 
+   ! subroutine get_umat_stiffness_matrix
+   !    !! Calls the users umat to get the stiffness matrix.
+   !    !! Sends dummy values or resets values for variables in case the variables are updated when they shouldn't be
+       
 
+   !    dstran(:)=0
+   !    dtime=0
+   !    dtemp=0
+   !    kinc=0
+   !    r_statev(:)=statev(:);  r_stress(:)=stress(:)     ! AN 21.06.2017 remember the initial state and stress
+   !    !=== first call umat with dstrain=0 dtime=0 just for stiffness (=jacobian ddsdde)
+   !    call  UMAT(stress,statev,ddsdde,sse,spd,scd,                       &
+   !       rpl,ddsddt,drplde,drpldt,                               &
+   !       stran,dstran,time,dtime,temp,dtemp,predef,dpred,cmname, &
+   !       ndi,nshr,ntens,nstatv,props,nprops,coords,drot,pnewdt,  &
+   !       celent,dfgrd0,dfgrd1,noel,npt,layer,kspt,0,kinc)   !=== some constitutive models require kStep=0 other do not
+
+   !    statev(:)=r_statev(:);  stress(:)=r_stress(:)   !  AN 21.06.2017 recover stress and state  although the ZERO call of umat should not modify them
+
+   ! end subroutine get_umat_stiffness_matrix
 end module mod_inc_driver_funcs

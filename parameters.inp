@@ -1,0 +1,15 @@
+Ortiz_MCSS          # Model name
+13          # Number of properties
+100          # Shear Modulus
+0.2          # poisson ratio
+10000.0          # peak cohesion
+0          # residual cohesion
+0          # peak fric angle
+5          # residual fric angle
+0          # peak dilatancy
+0          # residual dilatancy
+0          # softening shape factor
+1          # integration flag
+1e-08          # Yield surface tolerance
+1000          # num integration iters
+1e-06          # Euler_DT_min

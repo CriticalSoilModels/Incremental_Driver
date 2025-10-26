@@ -1,0 +1,17 @@
+6               # ntens, tension is positive
+-10               # s11
+-10               # s22
+-10               # s33
+0               # s12
+0               # s13
+0               # s23
+9               # Number of state variables
+10000.0               # cohesion - init value
+0.0               # fric angle - init value
+0               # dilatancy angle - init value
+0               # EspP_1 - init value
+0               # EspP_2 - init value
+0               # EspP_3 - init value
+0               # EspP_4 - init value
+0               # EspP_5 - init value
+0               # EspP_6 - init value

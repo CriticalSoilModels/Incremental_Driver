@@ -42,7 +42,8 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
    use mod_UMAT, only: UMAT
    use mod_inc_driver_funcs, only: splitaLine, ReadStepCommons, PARSER, get_increment,USOLVER, EXITNOW
 
-   use mod_types   , only: StressAlignment, descriptionOfStep
+   use mod_types   , only: StressAlignment
+   use mod_step_params, only: descriptionOfStep, get_repetition_params, set_repetition_params
    use mod_matrices, only: MRoscI, MRoscImt, MRendul, MRendulmT, MRosc, MRoscmT, MCart, MCartmT
 
    use mod_command_line, only: set_inputs
@@ -51,6 +52,9 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
    use mod_alignment, only: readAlignment, tryAlignStress
    use mod_loads
    use mod_maps
+   use mod_constants, only: iter_lower_limit
+   use mod_value_checks, only: set_zero_with_tol, check_stress_inc_size
+
    !!TODO: Add the only statements for the module imports
 
    implicit none
@@ -62,7 +66,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
 
    integer :: nstatv,nprops
    integer :: kinc,i
-   integer :: test_file_id, output_file_id !! Variable to hold file id when it's opened (Will be deprecated)
+   integer :: test_file_id, output_file_id, import_file_id !! Variable to hold file id when it's opened (Will be deprecated)
    integer :: iostat
 
    real(dp) :: dtime,temp,dtemp,sse,spd,scd,rpl,drpldt,pnewdt,celent
@@ -76,9 +80,8 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
 
    character(len=40):: keywords(10), outputfilename,&
       parametersfilename,&
-      initialconditionsfilename, testfilename, outputfilename1,&
-      exitCond, ImportFileName,mString, keyword2, &                 ! AN 2016
-      aShortLine, leftLine, rightLine
+      initialconditionsfilename, testfilename,&
+      exitCond, ImportFileName
 
    character(len=260) ::  inputline(6), aLine, heading
    character(len=520) :: hugeLine
@@ -111,7 +114,6 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       deltaTemp
 
    real(dp),dimension(1:6,1:6)::M,MmT      !  currrent $\cM$ and $\cM^{-T}$  for a given iStep
-   real(dp) :: aux1,aux2
 
    type(StressAlignment) :: align
    type(descriptionOfStep) :: ofStep(30)            !  stores descriptions of up to 30 steps which are repeated
@@ -129,14 +131,12 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       dtime, temp, statev, r_statev, statevHead, nstatv)
 
    ! TODO: File is open for awhile doesn't get closed until later
-   test_file_id = open(testfilename, iostat = iostat)
-   if (iostat /= 0) error stop "Can't read file: "//testfilename
+   test_file_id = open(testfilename)
 
    call set_output_name_from_test_file(test_file_id, outputfilename, heading)
 
    ! TODO: File is open for awhile doesn't get closed until later
-   output_file_id = open(outputfilename, iostat = iostat)
-   if (iostat /= 0) error stop "Can't open file: "//outputfilename
+   output_file_id = open(outputfilename, "w")
 
    call write_output_file_header(output_file_id, heading, nstatv)
    call write_line_output_data(output_file_id, time, dtime, stran, stress, statev)
@@ -145,7 +145,9 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
    kStep = 0  ! kStep = counter over all steps whereas  iStep = counter over steps within a *Repetition
    do_keyword: do ikeyword=1,10000
 
-      read(test_file_id,'(a)',end=999) keywords(1)
+      read(test_file_id,'(a)') keywords(1)
+
+      if (iostat < 0) error stop "Reached the end of the the test file"//testfilename
 
       keywords(1) = trim( keywords(1) )
       if(keywords(1) == '*Repetition') then
@@ -155,7 +157,6 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
          nSteps=1
          keywords(2) = keywords(1)
       endif
-
 
       do_repet: do iRepetition  = 1,nRepetitions
          do_istep: do iStep = 1,nSteps
@@ -174,26 +175,12 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                ' TIME = ', TIME(1)
 
             if(iRepetition > 1) then  ! while repeating  recall the loading parameters of the repeated step read in during the first iRepetition
-               ninc             = ofStep(istep)%ninc
-               maxiter          = ofStep(istep)%maxiter
-               ifstress         = ofStep(istep)%ifstress
-               deltaLoadCirc    = ofStep(istep)%deltaLoadCirc
-               phase0           = ofStep(istep)%phase0
-               deltaLoad        = ofStep(istep)%deltaLoad
-               dfgrd0           = ofStep(istep)%dfgrd0
-               dfgrd1           = ofStep(istep)%dfgrd1
-               deltaTime        = ofStep(istep)%deltaTime
-               keywords(2)      = ofStep(istep)%keyword2
-               keywords(3)      = ofStep(istep)%keyword3
-               cMe              = ofStep(istep)%cMe
-               cMt              = ofStep(istep)%cMt
-               mbinc            = ofStep(istep)%mbinc
-               exitCond         = ofStep(istep)%exitCond                       ! AN 2016
-               existCond        = ofStep(istep)%existCond                      ! AN 2016
-               ImportFileName   = ofStep(istep)%ImportFileName                 ! AN 2016
-               mImport          = ofStep(istep)%mImport                        ! AN 2016
-               columnsInFile    = ofStep(istep)%columnsInFile                  ! AN 2016   7 integers with numbers of columns  (or value = 0)
-               importFactor     = ofStep(istep)%importFactor                   ! AN 2016   7 real factors to be multiplied with columns  ! jump over reading, because reading of steps is performed only on the first loop, when iRepetition==1
+               ! jump over reading, because reading of steps is performed only on the first loop, when iRepetition==1
+               call get_repetition_params(ofstep(iStep), &
+                  ninc, maxiter, ifstress, deltaLoadCirc, phase0, &
+                  deltaLoad, dfgrd0, dfgrd1, deltaTime, keywords, cMe, cMt, mbinc, deltaTemp,&
+                  exitCond, existCond, ImportFileName, mImport, columnsInFile, importFactor)
+               ! AN 2016   7 real factors to be multiplied with columns
             endif
 
             if(keywords(1) == '*Repetition') read(1,'(a)') keywords(2)          ! = *LinearLoad  or *CirculatingLoad or *ObeyRestrictions...
@@ -226,7 +213,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                call read_linear_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, every, &
                   keywords(3), ifstress, deltaLoad)
 
-            else if(keyword2(1:11) == '*ImportFile') then
+            else if(keywords(2)(1:11) == '*ImportFile') then
                !! TODO: Check that this isn't broken. The load file id thing is funky.
                !! Not sure if the id is required in the main program. I don't think it's required?
                !! This is probably broken
@@ -237,7 +224,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
             else if(keywords(2) == '*OedometricE1') then
                call read_oedometric_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
                   every, keywords(2), keywords(3), deltaload(1))
-
+                  keywords(3) = trim(keywords(3))
             else if(keywords(2) == '*OedometricS1') then
                call read_oedometric_S1_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
                   every, keywords(2), keywords(3), deltaLoad(1), ifstress(1))
@@ -252,39 +239,39 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
 
             else if(keywords(2) == '*TriaxialUEq') then
                call read_triaxial_ueq_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-               every, keywords(2), keywords(3), deltaLoad(2))
-               
+                  every, keywords(2), keywords(3), deltaLoad(2))
+
             else if(keywords(2) == '*TriaxialUq') then
                call read_triaxial_uq_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-               every, keywords(2), keywords(3), deltaLoad(2), ifstress(2))
+                  every, keywords(2), keywords(3), deltaLoad(2), ifstress(2))
 
             else if(keywords(2) == '*PureRelaxation') then
                call read_pure_relaxation_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-               every, keywords(2), keywords(3))
+                  every, keywords(2), keywords(3))
 
             else if(keywords(2) == '*PureCreep') then
                call read_pure_creep_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-               every, keywords(2), keywords(3), ifstress)
+                  every, keywords(2), keywords(3), ifstress)
 
             else if(keywords(2) == '*UndrainedCreep') then
                call read_undrained_creep(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-               every, keywords(2), keywords(3), ifstress)
+                  every, keywords(2), keywords(3), ifstress)
 
             else if(keywords(2) == '*ObeyRestrictions') then  ! ======================= *ObeyRestrictions ==================================
                call read_obey_restrictions_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-               every, keywords(3), ifstress, cMt, cMe, mb, mbinc)
+                  every, keywords(3), ifstress, cMt, cMe, mb, mbinc)
 
             else if(keywords(2) == '*PerturbationsS') then
                call read_perturbations_S_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-               every, keywords(3), deltaLoad(1), ifstress)
+                  every, keywords(3), deltaLoad(1), ifstress)
 
             else if(keywords(2) == '*PerturbationsE') then
                call read_perturbations_E_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-               every, keywords(3), deltaLoad(1), ifstress)
+                  every, keywords(3), deltaLoad(1), ifstress)
 
             else if(keywords(2) == '*RandomWalk') then                         ! AN 2019
                call read_random_walk_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-               every, keywords(3), deltaLoad, ifstress)
+                  every, keywords(3), deltaLoad, ifstress)
             else
                if(keywords(2) == '*End') stop '*End encountered in test.inp'
                write(*,*) 'error: unknown keywords(2)=',keywords(2)
@@ -294,30 +281,14 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
             keywords(3) = trim(keywords(3))
 
             if(keywords(1) == '*Repetition' .and. iRepetition == 1) then      !  remember the description of step for the next repetition
-               ofStep(istep)%ninc          =    ninc
-               ofStep(istep)%maxiter       =    maxiter
-               ofStep(istep)%ifstress      =    ifstress
-               ofStep(istep)%deltaLoadCirc =    deltaLoadCirc
-               ofStep(istep)%phase0        =    phase0
-               ofStep(istep)%deltaLoad     =    deltaLoad
-               ofStep(istep)%dfgrd0        =    dfgrd0
-               ofStep(istep)%dfgrd1        =    dfgrd1
-               ofStep(istep)%deltaTime     =    deltaTime
-               ofStep(istep)%keyword2      =    keywords(2)
-               ofStep(istep)%keyword3      =    keywords(3)
-               ofStep(istep)%cMe           =    cMe
-               ofStep(istep)%cMt           =    cMt
-               ofStep(istep)%mbinc         =    mbinc
-               ofStep(istep)%deltaTemp     =    deltaTemp               ! AN 2023 temperat
-               ofStep(istep)%exitCond      =    exitCond                ! AN 2016
-               ofStep(istep)%existCond     =    existCond                ! AN 2016
-               ofStep(istep)%ImportFileName =   ImportFileName            ! AN 2016
-               ofStep(istep)%mImport        =   mImport                    ! AN 2016
-               ofStep(istep)%columnsInFile  =   columnsInFile              ! AN 2016    7 integers with numbers of columns  (or value = 0)
-               ofStep(istep)%importFactor   =   importFactor               ! AN 2016
+               ofStep(istep) = set_repetition_params(ninc, maxiter, ifstress, deltaLoadCirc, phase0, &
+                  deltaLoad, dfgrd0, dfgrd1, deltaTime, keywords, cMe, cMt, mbinc, deltaTemp, exitcond, &
+                  existcond, ImportFileName, mImport, columnsInFile, importFactor )
             endif
 
-            if(any(ifstress==1)) maxiter = max(maxiter,lower_limit_max_iter)  ! at least 5 iterations
+            ! If the choosen load is stress controlled make sure at least iter_lower_limit number of iterations is done
+            ! A guess at the correct strain has to be made and the stress has to be converged to
+            if(any(ifstress==1)) maxiter = max(maxiter,iter_lower_limit)
             if(all(ifstress==0) .and. keywords(2) .ne. '*ObeyRestrictions') maxiter = 1  ! no iterations are necessary
 
             ! start the current step with zero-load call of umat() just to get the stiffness
@@ -334,25 +305,28 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                celent,dfgrd0,dfgrd1,noel,npt,layer,kspt,0,kinc)   !=== some constitutive models require kStep=0 other do not
 
             statev(:)=r_statev(:);  stress(:)=r_stress(:)   !  AN 21.06.2017 recover stress and state  although the ZERO call of umat should not modify them
-
+            
             select case( keywords(3) )
              case('*Cartesian' ) ;      M =  MCart ; MmT = MCartmT
              case('*Roscoe')     ;      M = MRosc  ; MmT = MRoscmT
              case('*RoscoeIsomorph');   M = MRoscI ; MmT = MRoscImT
              case('*Rendulic')      ;   M = MRendul; MmT = MRendulmT
-             case default ;   write(*,*) 'Unknown keyword = ', keywords(3)
+             case default ;   write(*,*) 'Unknown keyword ', keywords(3)
                stop  ' stopped by unknown keywords(3) in test.inp'
             end select
 
             if(keywords(2) == '*ImportFile' ) then                           ! AN 2016
-               open(3,file=ImportFileName, status ='old', err=905)            ! AN 2016
+               import_file_id = open(ImportFileName)
                do                                                             ! AN 2016
-                  read(3,'(a)',err=906) hugeLine;                             ! AN 2016
+                  read(import_file_id,'(a)',iostat = iostat) hugeLine;         ! AN 2016
+                  
+                  if (iostat /= 0) error stop 'Error reading ImportFile in the first non-numeric records '
                   hugeLine= adjustL(hugeLine) ; aChar = hugeLine(1:1)         ! AN 2016
                   if(index('1234567890+-.',aChar) > 0) exit                  ! preceding non-numeric lines in ImportFile will be ignored
                enddo
 
-               read(hugeLine,*,err=907) oldState(1:mImport)                  ! AN 2016
+               read(hugeLine,*,iostat=iostat) oldState(1:mImport) 
+               if (iostat /= 0) error stop 'Error reading ImportFile in the first numeric record '
             endif
 
             ievery=1
@@ -361,22 +335,23 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                if(keywords(2) == '*ImportFile') then                             ! AN 2016
                   deltaTemp = 0                                                  ! AN 2023 temperat
                   dTemp = 0                                                      ! AN 2023 temperat
-                  read(3,*,iostat=i)  newState(1:mImport)                         ! AN 2016
-                  if(i > 0) then                                                  ! AN 2016
-                     write(*,*) 'error Import file',ImportFileName, 'line=', kinc+1  ! AN 2016
-                     stop                                                            ! AN 2016
-                  endif                                                           ! AN 2016
-                  if(i < 0) then                                                  ! AN 2016
-                     close(3)                                                    ! AN 2016
+                  read(import_file_id,*,iostat=iostat)  newState(1:mImport)                         ! AN 2016
+                  if(iostat > 0) then                                                  ! AN 2016
+                     write(*,*) 'error Import file',ImportFileName, 'line=', kinc+1
+                     error stop                                                            ! AN 2016
+                  else                                                                                                         ! AN 2016
+                     close(import_file_id)                                       ! AN 2016
                      write(*,*) 'finished reading file', ImportFileName          ! AN 2016
                      exit                                                        ! AN 2016
                   endif                                                           ! AN 2016
+
                   dState = newState(:) -  oldState(:)                             ! AN 2016
                   do i=1,6                                                        ! AN 2016
                      if  (columnsInFile(i) == 0) cycle                               ! AN 2016
-                     if (ifstress(i)==1  )  ddstress(i)= dState(columnsInFile(i))* ImportFactor(i)      ! AN 2016
-                     if (ifstress(i)==0)    dstran(i)  = dState(columnsInFile(i))* ImportFactor(i)      ! AN 2016
-                  enddo                                                            ! AN 2016
+                     if (ifstress(i)==1  )  ddstress(i)= dState(columnsInFile(i))* ImportFactor(i)      
+                     if (ifstress(i)==0)    dstran(i)  = dState(columnsInFile(i))* ImportFactor(i)     
+                  enddo  
+
                   if(columnsInFile(7)/= 0) deltaTime= dState(columnsInFile(7)) * ImportFactor(i)   ! AN 2016
                   dtime = deltaTime                                             ! AN 2016
                   oldState(:) = newState(:)                                    ! AN 2016
@@ -397,6 +372,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
 
                do_kiter: do kiter=1, maxiter  !--------Equilibrium Iteration--------
                   c_dstran(:) = 0
+
                   if(keywords(2)== '*ObeyRestrictions'  ) then  ! ======================= ObeyRestrictions =========
                      ddsdde_bar = matmul(cMt,ddsdde) + cMe
                      u_dstress = - matmul(cMt,a_dstress)-matmul(cMe,dstran)+ mbinc
@@ -456,12 +432,7 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
 
                end do do_kiter
 
-               aux1 =  dot_product(a_dstress,a_dstress)
-               aux2 =  dot_product(u_dstress,u_dstress)
-               if((aux1>1.d-10 .and. aux2/aux1 > 1.0d-2) .or. (aux1<1.d-10 .and. aux2 > 1.0d-12)  ) then
-                  write(*,*) 'I cannot apply the prescribed stress components,'// &
-                     '||u_dstress|| too large.'                 ! check  the Rosc.stress error < toler
-               endif
+               call check_stress_inc_size(a_dstress, u_dstress)
 
                if(keywords(2) =='*DeformationGradient' ) then                    !  rigid rotation of stress
                   T33 = map2T(stress,6)
@@ -472,13 +443,15 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
                   stran=map2stran(eps33,6)
                endif
 
-               where(abs(time) < 1.0d-99)   time = 0.0d0   ! prevents fortran error write 1.3E-391
-               where(abs(stran) < 1.0d-99)  stran = 0.0d0
-               where(abs(stress) < 1.0d-99) stress = 0.0d0
-               where(abs(statev) < 1.0d-99) statev = 0.0d0
+               time = set_zero_with_tol(time)
+               stran = set_zero_with_tol(stran)
+               stress = set_zero_with_tol(stress)
+               statev = set_zero_with_tol(statev)
+
                if(ievery==1) then
-                  write(2,'(500(g17.10,3h    ))') time+(/dtime,dtime/), stran, stress, statev
+                  write(output_file_id,'(500(g17.10,3h    ))') time+(/dtime,dtime/), stran, stress, statev
                endif
+
                if(keywords(2) =='*PerturbationsS' .or. keywords(2) =='*PerturbationsE' ) then ! having plotted everything undo the increment
                   stran(:)=stran(:) - dstran_Cart(:)
                   statev(:)=r_statev(:)
@@ -491,8 +464,9 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
 
                if( existCond ) then                                             ! AN 2016 only if a condition exists
                   if(  EXITNOW(exitCond, stress,stran,statev,nstatv)  ) exit   ! AN 2016 depending on  exitCond go to next step
-               endif                                                            ! AN 2016
-               ievery = ievery+1; if(ievery > every) ievery = 1
+               endif
+               ! AN 2016
+               ievery = ievery+1; if(ievery > every) ievery = 1 ! Increment ievery and reset it to 1 if applicable
 
                !*****************************************************
                if(keywords(2) == '*ImportFile' ) then
@@ -505,22 +479,9 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
       end do do_repet
    end do do_keyword
 
-
-
-
-! 998 stop 'End or record encountered in test.inp' ! WaveHello: Label not used
-999 close(test_file_id)
-   close(2)
-   stop 'I have reached end of the file test.inp'
-905 stop 'I cannot open the ImportFile'
-906 stop 'Error reading ImportFile in the first non-numeric records '
-907 stop 'Error reading ImportFile in the first numeric record '
-
-contains !========================================================
-   !  contained in program\_that\_calls\_umat that reads the command line
-
-
-  
+close(test_file_id)
+close(import_file_id)
+close(output_file_id)
 
 
 end program that_calls_umat

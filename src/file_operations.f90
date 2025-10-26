@@ -26,6 +26,7 @@ contains
       file = open(file_name)
 
       read(file, *) material_name
+      read(file, *) num_props
 
       i = index(material_name, '#')
       if(i == 0) then
@@ -40,6 +41,7 @@ contains
       do i=1,num_props
          read(file, *) prop_vals(i)
       enddo
+      
       close(file)
 
    end subroutine read_parameter_file
@@ -75,7 +77,6 @@ contains
       temperature   = 0.0_dp
 
       file = open(file_name, iostat = iostat)
-      if (iostat /= 0) error stop "Can't open file: "//file_name
 
       read(file,*) num_components
 
@@ -100,6 +101,7 @@ contains
 
          do i= 1, num_state_vars
             read(file, *, end=500) init_state_vars(i)   !
+            continue
          enddo
 
       else
@@ -108,7 +110,7 @@ contains
          num_state_vars = 1
       endif
 
-500   continue
+500   continue !! TODO: Update this to not use this goto
 
       ! Store the initial values
       state_vars = init_state_vars
@@ -153,39 +155,41 @@ contains
       character(len=10) :: time_header(2)
       character(len=10) :: strain_header(6)
       character(len=10) :: stress_header(6)
-      character(len=10) :: state_var_header(num_state_vars)
+      character(len=15) :: state_var_header(num_state_vars)
 
       ! Get the output headers
-      call get_output_headers(num_state_vars, time_header, strain_header, stress_header, state_var_header )
+      call get_output_headers(time_header, strain_header, stress_header, state_var_header )
 
       ! Write the headers
-      write(output_file_id,'(a14,500a20)') time_header, strain_header ,stress_header,state_var_header
+      write(output_file_id,'(a14,500a20)') time_header, strain_header ,stress_header, state_var_header
 
       if(output_file_heading(1:1) /= '#') write(output_file_id,*) trim(output_file_heading)
 
    end subroutine write_output_file_header
 
-   subroutine get_output_headers(num_state_vars, time_header, strain_header, stress_header, state_var_header)
+   subroutine get_output_headers(time_header, strain_header, stress_header, state_var_header)
       !! Writes output file headers and stores them in the *_header arrays
-      integer, intent(in) :: num_state_vars
       character(len=10), intent(out) :: time_header(2)
-      character(len=10), intent(out) :: strain_header(6)
-      character(len=10), intent(out) :: stress_header(6)
-      character(len=10), intent(out) :: state_var_header(num_state_vars)
-
+      character(len=10), intent(out) :: strain_header(voight_len)
+      character(len=10), intent(out) :: stress_header(voight_len)
+      character(len=15), intent(out) :: state_var_header(:)
+      
+      !Local
       integer :: i
+      integer :: num_state_vars
+      num_state_vars = size(state_var_header)
 
       do i=1,2
-         write(time_header(i),'(a,i1,a)')  'time(',i, ')'
+         write(time_header(i),'(a,i0,a)')  'time(',i, ')'
       enddo
 
       do i=1,voight_len
-         write( strain_header(i), '(a,i1,a)' )   'stran(',i, ')'
-         write( stress_header(i), '(a,i1,a)' )  'stress(',i, ')'
+         write( strain_header(i), '(a,i0,a)' )   'stran(',i, ')'
+         write( stress_header(i), '(a,i0,a)' )  'stress(',i, ')'
       enddo
 
       do i=1,num_state_vars
-         write(state_var_header(i), '(a,i3,a)' )  '  statev(',i, ')'
+         write(state_var_header(i), '(a,i0,a)' ) 'statev(',i,')'
       enddo
    end subroutine get_output_headers
 

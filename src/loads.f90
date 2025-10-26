@@ -3,8 +3,8 @@ module mod_loads
    use mod_inc_driver_funcs, only: ReadStepCommons, splitaLine, parser
    use mod_alignment, only: readAlignment
    use mod_types, only: StressAlignment
-   use mod_constants, only: voight_len, max_fname_len
-
+   use mod_constants, only: voight_len, max_fname_len, max_lname_len
+   use mod_step_params, only: descriptionOfStep
 
    implicit none
    ! private
@@ -19,7 +19,7 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword
+      character(max_lname_len), intent(out) :: keyword
       real(dp), intent(out) :: deltaLoad(:)
 
       !Local
@@ -159,13 +159,14 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword2, keyword3
+      character(max_lname_len), intent(inout) :: keyword2, keyword3
       real(dp), intent(out) :: deltaLoad1
 
       integer :: i
 
-      keyword2 = '*LinearLoad'
-      keyword3 ='*Cartesian'
+      keyword2 = adjustl(trim('*LinearLoad'))
+      keyword3 = adjustl(trim('*Cartesian'))
+
       call ReadStepCommons(test_file_id,ninc,maxiter,deltaTime,deltaTemp, write_freq)    ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
       read(test_file_id,*)   deltaLoad1
 
@@ -179,14 +180,14 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword2, keyword3
+      character(max_lname_len), intent(inout) :: keyword2, keyword3
       real(dp), intent(out) :: deltaLoad1
       integer :: ifstress1
 
       integer :: i
 
-      keyword2 = '*LinearLoad'
-      keyword3 ='*Cartesian'
+      keyword2 = adjustl(trim('*LinearLoad'))
+      keyword3 =adjustl(trim('*Cartesian'))
       call ReadStepCommons(test_file_id,ninc,maxiter,deltaTime,deltaTemp, write_freq)   ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
       ifstress1 = 1
       read(test_file_id,*)   deltaLoad1
@@ -201,14 +202,14 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword2, keyword3
+      character(max_lname_len), intent(inout) :: keyword2, keyword3
       real(dp), intent(out) :: deltaLoad1
       integer :: ifstress(2)
 
       integer :: i
 
-      keyword2 = '*LinearLoad'
-      keyword3 ='*Cartesian'
+      keyword2 = adjustl(trim('*LinearLoad'))
+      keyword3 = adjustl(trim('*Cartesian'))
       call ReadStepCommons(test_file_id,ninc,maxiter,deltaTime,deltaTemp, write_freq)   ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
       ifstress = 1
       read(test_file_id,*)   deltaLoad1
@@ -223,14 +224,14 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword2, keyword3
+      character(max_lname_len), intent(inout) :: keyword2, keyword3
       real(dp), intent(out) :: deltaLoad1
       integer, intent(out) :: ifstress(3)
 
       integer :: i
 
-      keyword2 = '*LinearLoad'
-      keyword3 ='*Cartesian'
+      keyword2 = adjustl(trim('*LinearLoad'))
+      keyword3 = adjustl(trim('*Cartesian'))
       call ReadStepCommons(test_file_id,ninc,maxiter,deltaTime,deltaTemp, write_freq)   ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
       ifstress = 1
       read(test_file_id,*)   deltaLoad1
@@ -245,14 +246,14 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword2, keyword3
+      character(max_lname_len), intent(inout) :: keyword2, keyword3
       real(dp), intent(out) :: deltaLoad2
 
 
       integer :: i
 
-      keyword2 = '*LinearLoad'
-      keyword3 ='*Roscoe'
+      keyword2 = adjustl(trim('*LinearLoad'))
+      keyword3 = adjustl(trim('*Roscoe'))
       call ReadStepCommons(test_file_id,ninc,maxiter,deltaTime,deltaTemp, write_freq)   ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
       read(test_file_id,*)   deltaLoad2
 
@@ -265,13 +266,13 @@ contains
       integer, intent(out) :: maxiter
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
-      integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword2, keyword3
+      integer, intent(inout) :: write_freq
+      character(max_lname_len), intent(inout) :: keyword2, keyword3
       real(dp), intent(out) :: deltaLoad2
       integer, intent(out) :: ifstress2
 
-      keyword2 = '*LinearLoad'
-      keyword3 ='*Roscoe'
+      keyword2 = adjustl(trim('*LinearLoad'))
+      keyword3 = adjustl(trim('*Roscoe'))
       call ReadStepCommons(test_file_id,ninc,maxiter,deltaTime,deltaTemp, write_freq)   ! AN 2016   read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
       read(test_file_id,*)   deltaLoad2
       ifstress2 =1
@@ -286,10 +287,10 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword2, keyword3
+      character(max_lname_len), intent(inout) :: keyword2, keyword3
 
-      keyword2 = '*LinearLoad'
-      keyword3 ='*Cartesian'
+      keyword2 = adjustl(trim('*LinearLoad'))
+      keyword3 = adjustl(trim('*Cartesian'))
       call ReadStepCommons(test_file_id,ninc,maxiter,deltaTime,deltaTemp,write_freq)    ! AN 2016  read(1,*) ninc, maxiter, deltaTime ! AN 2023 temperat
    end subroutine read_pure_relaxation_load
 
@@ -301,11 +302,11 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword2, keyword3
+      character(max_lname_len), intent(inout) :: keyword2, keyword3
       integer, intent(out) :: ifstress(voight_len)
 
-      keyword2 = '*LinearLoad'
-      keyword3 ='*Cartesian'
+      keyword2 = adjustl(trim('*LinearLoad'))
+      keyword3 =adjustl(trim('*Cartesian'))
       call ReadStepCommons(test_file_id,ninc,maxiter,deltaTime,deltaTemp,write_freq)
       ifstress = 1
    end subroutine read_pure_creep_load
@@ -318,11 +319,11 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword2, keyword3
+      character(max_lname_len), intent(inout) :: keyword2, keyword3
       integer, intent(out) :: ifstress(voight_len)
 
-      keyword2 = '*LinearLoad'
-      keyword3 ='*Roscoe'
+      keyword2 = adjustl(trim('*LinearLoad'))
+      keyword3 = adjustl(trim('*Roscoe'))
       call ReadStepCommons(test_file_id,ninc,maxiter,deltaTime,deltaTemp,write_freq)
       ifstress(1) = 0
       ifstress(2:6) = 1
@@ -337,7 +338,7 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword3
+      character(max_lname_len), intent(out) :: keyword3
       integer, intent(out) :: ifstress(voight_len)
       real(dp), intent(out) :: cMt(6,6)
       real(dp), intent(out) :: cMe(6,6)
@@ -357,7 +358,7 @@ contains
       call parser(inputline, cMt,cMe,mb )
 
       mbinc = mb/ninc
-      keyword3 ='*Cartesian'
+      keyword3 = adjustl(trim('*Cartesian'))
       ifstress(1:6) = 1
 
    end subroutine read_obey_restrictions_load
@@ -370,7 +371,7 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword3
+      character(max_lname_len), intent(out) :: keyword3
       integer, intent(out) :: ifstress(voight_len)
       real(dp), intent(out) :: deltaLoad1
 
@@ -383,7 +384,7 @@ contains
 
       read(test_file_id,*) keyword3  ! = *Rendulic  or *RoscoeIsomorph
 
-      keyword3 = trim( keyword3 )
+      keyword3 = adjustl(trim(keyword3))
 
       if(keyword3 .ne. '*Rendulic' .and. keyword3 .ne. '*RoscoeIsomorph') then
          write(*,*) 'warning: non-Isomorphic perturburbation'
@@ -402,7 +403,7 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword3
+      character(max_lname_len), intent(out) :: keyword3
       integer, intent(out) :: ifstress(voight_len)
       real(dp), intent(out) :: deltaLoad1
 
@@ -414,7 +415,7 @@ contains
       deltaTemp = 0  ! AN 2023 temperat
       read(test_file_id,*) keyword3
 
-      keyword3 = trim( keyword3 )
+      keyword3 = adjustl(trim(keyword3 ))
 
       if(keyword3 .ne. '*Rendulic' .and. keyword3 .ne. '*RoscoeIsomorph') then
          write(*,*) 'warning: Anisomorphic perturburbation'
@@ -432,7 +433,7 @@ contains
       real(dp), intent(out) :: deltaTime
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
-      character(10), intent(out) :: keyword3
+      character(max_lname_len), intent(out) :: keyword3
       integer, intent(out) :: ifstress(voight_len)
       real(dp), intent(out) :: deltaLoad(voight_len)
 
@@ -444,7 +445,7 @@ contains
       deltaTemp = 0  ! AN 2023 temperat
       read(test_file_id,*) keyword3
 
-      keyword3 = trim( keyword3 )
+      keyword3 = adjustl(trim(keyword3 ))
 
       if(keyword3 .ne. '*Rendulic' .and. keyword3 .ne. '*RoscoeIsomorph') then
          write(*,*) 'warning: Anisomorphic perturburbation'
@@ -454,4 +455,7 @@ contains
          read(1,*) ifstress(i),deltaLoad(i)    !  dload means max abs value of to be multiplied by random in (-1,1)
       enddo
    end subroutine read_random_walk_load
+
+  
+
 end module mod_loads

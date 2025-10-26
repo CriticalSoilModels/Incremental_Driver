@@ -15,6 +15,7 @@ module-naming = false
 
 # stdlib = { git = "https://github.com/fortran-lang/stdlib", branch = "stdlib-fpm" }
 stdlib = {path = "../../stdlib"}
+critical-soil-models = {git = "https://github.com/CriticalSoilModels/critical-soil-models"}
 # fortplot = { git = "https://github.com/krystophny/fortplot" }
 
 [dev-dependencies]

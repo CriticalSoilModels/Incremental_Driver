@@ -8,10 +8,10 @@ module mod_constants
 
     integer, parameter :: max_fname_len = 40 !! Max file name length
     integer, parameter :: max_mater_len = 80 !! Max material name length
+    integer, parameter :: max_lname_len = 40 !! max length of the load name
     integer, parameter :: voight_len = 6     !! Length of the voight vector
     integer, parameter :: max_head_len = 260 !! max heading length
-    integer, parameter :: lower_limit_max_iter = 5 !! Lowest allowed iterations for stress conditions
+    integer, parameter :: iter_lower_limit = 5 !! Lowest allowed iterations for stress conditions
     ! real(dp), parameter:: pi = pi_dp
-contains
     
 end module mod_constants
