@@ -90,15 +90,15 @@ The intended production UMAT is `UMAT_MCSS` from the `critical-soil-models` repo
 
 ### Module prefix
 
-All modules in this project use the `mod_` prefix:
+All modules in this project use the `indr_` prefix (incremental driver):
 
 ```fortran
-module mod_loads
-module mod_step_params
-module mod_file_io
+module indr_loads
+module indr_step_params
+module indr_file_io
 ```
 
-The legacy funcs module is `mod_inc_driver_funcs`. New modules being extracted from it should follow the `mod_` convention.
+The existing `mod_*` names on this branch are legacy and will be renamed to `indr_*` as part of the style sweep. New modules being extracted should use `indr_` from the start.
 
 ---
 
@@ -117,14 +117,15 @@ A practical style guide for modern Fortran (2008+) applied to this project.
 
 ### Modules
 
-Use the `mod_` prefix to namespace modules and avoid collisions:
+Use the `indr_` prefix to namespace modules and avoid collisions on the fpm registry:
 
 ```fortran
-! Good — prefixed
-module mod_loads
-module mod_step_params
+! Good — prefixed with project abbreviation
+module indr_loads
+module indr_step_params
 
 ! Bad
+module mod_loads            ! Too generic — collides on registry
 module ShallowWaterSolver   ! CamelCase
 module loads                ! No prefix, collision risk
 ```
@@ -217,7 +218,7 @@ integer, parameter :: MAX_ITER = 1000
 ```fortran
 ! Good
 use stdlib_kinds, only: dp
-use mod_step_params, only: descriptionOfStep
+use indr_step_params, only: descriptionOfStep
 
 ! Bad — pollutes namespace, hides dependencies
 use mod_step_params
@@ -263,7 +264,7 @@ function update_and_return_norm(state) result(n)
 ### Private by Default
 
 ```fortran
-module mod_loads
+module indr_loads
    implicit none
    private
 

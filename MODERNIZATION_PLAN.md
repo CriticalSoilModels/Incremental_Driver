@@ -26,21 +26,21 @@ Significant modularization has already been done. The monolithic original has be
 
 | Procedure | Concern | Target module |
 |-----------|---------|---------------|
-| `get_increment` | Increment computation (load path logic) | `mod_loads` or `mod_step` |
-| `USOLVER` | Newton equilibrium iterator | `mod_solver` |
-| `EXITNOW` | Exit condition evaluator | `mod_parser` |
-| `PARSER` | `*ObeyRestrictions` parser | `mod_parser` |
-| `splitaLine` | String split utility | `mod_parser` |
-| `ReadStepCommons` | Step header reader | `mod_parser` |
-| `ROTSIG` | Abaqus tensor rotation utility | `mod_abaqus_utils` |
-| `SINV` | Abaqus stress invariants | `mod_abaqus_utils` |
-| `SPRINC` | Abaqus principal values | `mod_abaqus_utils` |
-| `SPRIND` | Abaqus principal values + directions | `mod_abaqus_utils` |
-| `XIT` | Abaqus stop utility | `mod_abaqus_utils` |
-| `inv33` | 3×3 matrix inverse (contained in `get_increment`) | `mod_linalg` |
-| `spectral_decomposition_of_symmetric` | Jacobi eigenvalue solver | `mod_linalg` |
-| `app_jacobian_similarity` | Givens rotation step | `mod_linalg` |
-| `get_jacobian_rot` | Optimal rotation params | `mod_linalg` |
+| `get_increment` | Increment computation (load path logic) | `indr_loads` |
+| `USOLVER` | Newton equilibrium iterator | `indr_solver` |
+| `EXITNOW` | Exit condition evaluator | `indr_parser` |
+| `PARSER` | `*ObeyRestrictions` parser | `indr_parser` |
+| `splitaLine` | String split utility | `indr_parser` |
+| `ReadStepCommons` | Step header reader | `indr_parser` |
+| `ROTSIG` | Abaqus tensor rotation utility | `indr_abaqus_utils` |
+| `SINV` | Abaqus stress invariants | `indr_abaqus_utils` |
+| `SPRINC` | Abaqus principal values | `indr_abaqus_utils` |
+| `SPRIND` | Abaqus principal values + directions | `indr_abaqus_utils` |
+| `XIT` | Abaqus stop utility | `indr_abaqus_utils` |
+| `inv33` | 3×3 matrix inverse (contained in `get_increment`) | `indr_linalg` |
+| `spectral_decomposition_of_symmetric` | Jacobi eigenvalue solver | `indr_linalg` |
+| `app_jacobian_similarity` | Givens rotation step | `indr_linalg` |
+| `get_jacobian_rot` | Optimal rotation params | `indr_linalg` |
 
 ### Blocked dependency
 
@@ -66,11 +66,35 @@ Still needed before extracting from `mod_inc_driver_funcs`:
 
 ---
 
-### Phase 2 — Extract remaining concerns from `mod_inc_driver_funcs`
+### Phase 2 — Rename existing `mod_*` modules to `indr_*`
 
-Each step: extract → update callers → `fpm test` → commit.
+The existing modules use a generic `mod_` prefix that would collide on the fpm registry. Rename all of them to `indr_` before adding new ones.
 
-#### 2a. `mod_linalg`
+Rename table:
+
+| Old name | New name | File rename |
+|----------|----------|-------------|
+| `mod_run_model` | `indr_run_model` | `run_model.f90` (keep) |
+| `mod_loads` | `indr_loads` | `loads.f90` (keep) |
+| `mod_file_io` | `indr_file_io` | `file_operations.f90` → `file_io.f90` |
+| `mod_step_params` | `indr_step_params` | `step_params.f90` (keep) |
+| `mod_types` | `indr_types` | `types.f90` (keep) |
+| `mod_constants` | `indr_constants` | `constants.f90` (keep) |
+| `mod_matrices` | `indr_matrices` | `matrices.f90` (keep) |
+| `mod_maps` | `indr_maps` | `maps.f90` (keep) |
+| `mod_alignment` | `indr_alignment` | `alignment.f90` (keep) |
+| `mod_command_line` | `indr_command_line` | `command_line.f90` (keep) |
+| `mod_value_checks` | `indr_value_checks` | `write_formatting.f90` → `value_checks.f90` |
+| `mod_UMAT` | `indr_umat` | `elastic.f90` (keep) |
+| `mod_inc_driver_funcs` | (split out, then delete) | see Phase 3 |
+
+Do this as a **single commit** (rename only, no logic changes) so the diff is mechanical and reviewable.
+
+### Phase 3 — Extract remaining concerns from `mod_inc_driver_funcs`
+
+Each step: write tests → extract → update callers → `fpm test` → commit.
+
+#### 3a. `indr_linalg`
 
 Extract:
 - `spectral_decomposition_of_symmetric`
@@ -78,15 +102,15 @@ Extract:
 - `get_jacobian_rot`
 - `inv33` (move out of `contains` block in `get_increment`)
 
-#### 2b. `mod_abaqus_utils`
+#### 3b. `indr_abaqus_utils`
 
 Extract:
 - `ROTSIG`, `SINV`, `SPRINC`, `SPRIND`, `XIT`
 
 Keep original Abaqus names — UMATs call these directly.
-Depends on `mod_linalg` for spectral decomposition.
+Depends on `indr_linalg` for spectral decomposition.
 
-#### 2c. `mod_parser`
+#### 3c. `indr_parser`
 
 Extract:
 - `splitaLine` → `split_line`
@@ -94,20 +118,20 @@ Extract:
 - `PARSER`
 - `EXITNOW` → `exit_now`
 
-#### 2d. `mod_solver`
+#### 3d. `indr_solver`
 
 Extract:
 - `USOLVER`
 
-#### 2e. Merge `get_increment` into `mod_loads`
+#### 3e. Merge `get_increment` into `indr_loads`
 
-`get_increment` belongs with the other load logic already in `mod_loads`.
+`get_increment` belongs with the other load logic already in `indr_loads`.
 
-After 2a–2e, `mod_inc_driver_funcs` should be empty and removable.
+After 3a–3e, `mod_inc_driver_funcs` should be empty and removable.
 
 ---
 
-### Phase 3 — Style Sweep
+### Phase 4 — Style Sweep
 
 Apply to each module after it is extracted or revisited (do not batch all at once):
 
@@ -124,7 +148,7 @@ Apply to each module after it is extracted or revisited (do not batch all at onc
 
 ---
 
-### Phase 4 — Math Verification
+### Phase 5 — Math Verification
 
 - [ ] `get_increment` `*DeformationGradient` branch: cite Hughes & Winget (1980)
 - [ ] `SINV`: cite Cambridge p–q definition
@@ -133,7 +157,7 @@ Apply to each module after it is extracted or revisited (do not batch all at onc
 
 ---
 
-### Phase 5 — critical-soil-models Integration
+### Phase 6 — critical-soil-models Integration
 
 Once `aba_param.inc` issue is resolved upstream:
 - [ ] Re-enable `critical-soil-models` in `fpm.toml`
