@@ -14,15 +14,16 @@ module-naming = false
 [dependencies]
 
 # stdlib = { git = "https://github.com/fortran-lang/stdlib", branch = "stdlib-fpm" }
-stdlib = {path = "../../stdlib"}
-critical-soil-models = {git = "https://github.com/CriticalSoilModels/critical-soil-models"}
+stdlib = { git = "https://github.com/fortran-lang/stdlib", branch = "stdlib-fpm" }
+# critical-soil-models blocked: NorSand requires aba_param.inc (Abaqus) — fix upstream first
+# critical-soil-models = {git = "https://github.com/CriticalSoilModels/critical-soil-models"}
 # fortplot = { git = "https://github.com/krystophny/fortplot" }
 # DataFort = {git = "https://github.com/rngil/DataFort.git"}
-csv-fortran = {git = "https://github.com/jacobwilliams/csv-fortran.git"}
+# csv-fortran = {git = "https://github.com/jacobwilliams/csv-fortran.git"}
 
 [dev-dependencies]
 # fortplot = { git = "https://github.com/krystophny/fortplot/" }
-test-drive.git = "https://github.com/fortran-lang/test-drive"
+test-drive = { git = "https://github.com/fortran-lang/test-drive" }
 
 
 [install]

@@ -37,28 +37,15 @@
 
 !  Main program that\_calls\_umat ( performs calculation writing  to output.txt).
 PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
-   use stdlib_kinds, only: dp
-   use stdlib_io, only: open
-   use csv_module, only: csv_file
-   use critical_soil_models, only: UMAT => UMAT_MCSS
+   ! Temporarily using the local elastic UMAT.
+   ! critical-soil-models (UMAT_MCSS) is the intended target but is blocked
+   ! by aba_param.inc in NorSand — revisit once that is resolved upstream.
+   use mod_UMAT, only: UMAT
    use mod_run_model, only: run_model
-   ! use MOD_MCSS_ESM, only: UMAT_MohrCoulombStrainSoftening
 
    implicit none
-   
-   real(dp) :: temps(3) = [20.0_dp, 25.0_dp, 22.0_dp]
-   type(csv_file) :: f
-   character(len=30), dimension(:), allocatable :: header
-   integer, dimension(:), allocatable :: itypes
-   logical :: status_ok
 
    call run_model(umat)
-
-   ! call f%read("output.txt", header_row = 1, status_ok = status_ok)
-   ! call f%get_header(header, status_ok)
-   ! call f%variable_types(itypes, status_ok)
-
-   ! get some data
 
 end program that_calls_umat
 

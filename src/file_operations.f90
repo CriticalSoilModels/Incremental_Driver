@@ -97,7 +97,7 @@ contains
       if(num_state_vars >= 1) then
          allocate(state_vars(num_state_vars)     , source = 0.0_dp)
          allocate(init_state_vars(num_state_vars), source = 0.0_dp)
-         allocate(state_vars_head(num_state_vars), source = " ")
+         allocate(state_vars_head(num_state_vars)); state_vars_head = ' '
 
          do i= 1, num_state_vars
             read(file, *, end=500) init_state_vars(i)   !
@@ -106,7 +106,7 @@ contains
 
       else
          allocate( state_vars(1) , init_state_vars(1), source = 0.0_dp )             !  AN 2016 formal placeholder not really used
-         allocate(state_vars_head(1), source = " ")
+         allocate(state_vars_head(1)); state_vars_head = ' '
          num_state_vars = 1
       endif
 
