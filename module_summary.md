@@ -1,5 +1,68 @@
 # Module Summary
 
+## Dependency Flow
+
+Arrows mean "imports from". Leaf nodes at the bottom have no dependencies on project code.
+
+```
+app/incrementalDriver
+        │
+        ├── mod_UMAT (elastic.f90)
+        │
+        └── mod_run_model
+                │
+                ├── mod_inc_driver_funcs ──────────────────────┐
+                │   (splitaLine, ReadStepCommons, PARSER,      │
+                │    get_increment, USOLVER, EXITNOW,          │
+                │    ROTSIG, SINV, SPRINC, SPRIND, XIT,       │
+                │    inv33, spectral_decomp, LU solver)        │
+                │                                              │
+                ├── mod_loads ──────────────── mod_alignment ──┤
+                │   (13 load readers)              │           │
+                │                                 └───────────►mod_inc_driver_funcs
+                │                                              │
+                ├── mod_file_io                                │
+                │   (read params/IC, write output)             │
+                │                                              │
+                ├── mod_command_line                           │
+                │   (CLI args → filenames)                     │
+                │                                              │
+                ├── mod_step_params ◄──── mod_loads            │
+                │   (descriptionOfStep,                        │
+                │    get/set_repetition_params)                │
+                │                                              │
+                ├── mod_types ◄──────────── mod_loads          │
+                │   (StressAlignment)    ◄── mod_alignment     │
+                │                                              │
+                ├── mod_matrices                               │
+                │   (MRosc, MCart, MRendul, …)                 │
+                │                                              │
+                ├── mod_maps                                   │
+                │   (map2T/D/stress/stran, write66/6)          │
+                │                                              │
+                ├── mod_value_checks                           │
+                │   (set_zero_with_tol,                        │
+                │    check_stress_inc_size)                    │
+                │                                              │
+                └── mod_constants ◄────────────────────────────┘
+                    (voight_len, max_fname_len, …)
+                    (used by most modules above)
+```
+
+### Leaf modules (no project imports)
+- `mod_constants` — only imports `stdlib_kinds`
+- `mod_matrices` — only imports `stdlib_kinds`
+- `mod_maps` — only imports `stdlib_kinds`
+- `mod_UMAT` — only imports `stdlib_kinds`
+- `mod_command_line` — no project imports
+- `mod_value_checks` — only imports `stdlib_kinds`, `stdlib_optval`
+
+### The coupling problem
+
+`mod_inc_driver_funcs` is imported by three different modules (`mod_run_model`, `mod_loads`, `mod_alignment`). It's acting as a shared utilities layer, which is why it hasn't been split yet — everything depends on it. Breaking it apart (`indr_linalg`, `indr_parser`, `indr_solver`) will untangle this.
+
+---
+
 A description of every module in the project — what it contains, what it owns, and what's missing or worth discussing.
 
 ---
