@@ -1,7 +1,7 @@
 program test_linalg
    ! Tests for inv33 and spectral_decomposition_of_symmetric
    use stdlib_kinds, only: dp
-   use mod_inc_driver_funcs, only: inv33, spectral_decomposition_of_symmetric
+   use indr_linalg, only: inv33, spectral_decomposition_of_symmetric
    implicit none
 
    integer :: nfail = 0
