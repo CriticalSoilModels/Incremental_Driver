@@ -104,6 +104,7 @@ contains
 
       type(StressAlignment) :: align
       type(step_config_t) :: ofStep(30)            !  stores descriptions of up to 30 steps which are repeated
+      type(step_config_t) :: inc_config            !  step config assembled for get_increment call
 
 
       ! [1]  Set the filenames and the verose seting
@@ -347,11 +348,16 @@ contains
                   endif                                                             ! AN 2016
 
                   if(keywords(2) /= '*ImportFile') then                            ! AN 2016
-
-                     call get_increment(keywords, time, deltaTime, ifstress, ninc,  &    ! get inc. in terms of Rosc. variables
-                        deltaLoadCirc,phase0,deltaLoad,deltaTemp,&
-                        dtime, ddstress,  dstran, dTemp,  Qb33,  &    ! AB 2023 deltaTemp and dTemp added
-                        dfgrd0, dfgrd1,drot )   ! to be called in each increment
+                     inc_config%load_type       = keywords(2)
+                     inc_config%coord_sys       = keywords(3)
+                     inc_config%delta_time      = deltaTime
+                     inc_config%n_inc           = ninc
+                     inc_config%ifstress        = ifstress
+                     inc_config%delta_load      = deltaLoad
+                     inc_config%delta_load_circ = deltaLoadCirc
+                     inc_config%phase0          = phase0
+                     inc_config%delta_temp      = deltaTemp
+                     call get_increment(inc_config, time, dtime, ddstress, dstran, dTemp, Qb33, dfgrd0, dfgrd1, drot)
                   endif
 
 

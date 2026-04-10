@@ -461,16 +461,12 @@ contains
 
    ! Converts a step description into per-increment ddstress/dstran.
    ! Called once per increment (not once per step).
-   subroutine get_increment(keywords, time, deltaTime, ifstress, ninc, &
-      deltaLoadCirc, phase0, deltaLoad, deltaTemp, &
-      dtime, ddstress, dstran, dTemp, Qb33, &
-      dfgrd0, dfgrd1, drot)
+   subroutine get_increment(config, time, dtime, ddstress, dstran, dTemp, Qb33, dfgrd0, dfgrd1, drot)
       implicit none
-      character(40),    intent(in)    :: keywords(10)
-      integer,          intent(in)    :: ifstress(6), ninc
-      real(dp),         intent(in)    :: time(2), deltaTime, deltaLoadCirc(6), phase0(6), deltaLoad(9), deltaTemp
-      real(dp),         intent(out)   :: dtime, ddstress(6), dstran(6), Qb33(3,3), dTemp
-      real(dp),         intent(inout) :: dfgrd0(3,3), dfgrd1(3,3), drot(3,3)
+      type(step_config_t), intent(in)    :: config
+      real(dp),            intent(in)    :: time(2)
+      real(dp),            intent(out)   :: dtime, ddstress(6), dstran(6), Qb33(3,3), dTemp
+      real(dp),            intent(inout) :: dfgrd0(3,3), dfgrd1(3,3), drot(3,3)
 
       real(dp), parameter :: Pi = 3.1415926535897932385_dp
       real(dp), parameter :: delta(3,3) = reshape([1,0,0,0,1,0,0,0,1], [3,3])
@@ -478,8 +474,17 @@ contains
       real(dp) :: wd(6), w0(6), t, arandom
       integer  :: i
 
-      dtime    = deltaTime / ninc
-      dTemp    = deltaTemp / ninc
+      associate(load_type       => config%load_type,       &
+                delta_time      => config%delta_time,      &
+                n_inc           => config%n_inc,           &
+                ifstress        => config%ifstress,        &
+                delta_load      => config%delta_load,      &
+                delta_load_circ => config%delta_load_circ, &
+                phase0          => config%phase0,          &
+                delta_temp      => config%delta_temp)
+
+      dtime    = delta_time / n_inc
+      dTemp    = delta_temp / n_inc
       dstran   = 0.0_dp
       ddstress = 0.0_dp
       Qb33     = delta
@@ -487,20 +492,20 @@ contains
       dfgrd0   = delta
       dfgrd1   = delta
 
-      if (keywords(2) == '*LinearLoad') then
+      if (load_type == '*LinearLoad') then
          do i = 1, 6
-            if (ifstress(i) == 1) ddstress(i) = deltaLoad(i) / ninc
-            if (ifstress(i) == 0) dstran(i)   = deltaLoad(i) / ninc
+            if (ifstress(i) == 1) ddstress(i) = delta_load(i) / n_inc
+            if (ifstress(i) == 0) dstran(i)   = delta_load(i) / n_inc
          end do
       end if
 
-      if (keywords(2) == '*DeformationGradient') then
-         Fb = reshape([deltaLoad(1), deltaLoad(5), deltaLoad(7), &
-                       deltaLoad(4), deltaLoad(2), deltaLoad(9), &
-                       deltaLoad(6), deltaLoad(8), deltaLoad(3)], [3,3])
-         Fbb    = delta + (Fb - delta) * (time(1) / deltaTime)
+      if (load_type == '*DeformationGradient') then
+         Fb = reshape([delta_load(1), delta_load(5), delta_load(7), &
+                       delta_load(4), delta_load(2), delta_load(9), &
+                       delta_load(6), delta_load(8), delta_load(3)], [3,3])
+         Fbb    = delta + (Fb - delta) * (time(1) / delta_time)
          dfgrd0 = Fbb
-         dFb    = (Fb - delta) / ninc
+         dFb    = (Fb - delta) / n_inc
          aux33  = Fbb + dFb / 2.0_dp
          dfgrd1 = Fbb + dFb
          aux33  = inv33(aux33)
@@ -514,34 +519,36 @@ contains
          drot    = Qb33
       end if
 
-      if (keywords(2) == '*CirculatingLoad') then
-         wd = 2.0_dp * Pi / deltaTime
+      if (load_type == '*CirculatingLoad') then
+         wd = 2.0_dp * Pi / delta_time
          w0 = phase0
          t  = time(1) + dtime / 2.0_dp
          do i = 1, 6
-            if (ifstress(i) == 1) ddstress(i) = dtime*deltaLoadCirc(i)*wd(i)*cos(wd(i)*t + w0(i)) + deltaLoad(i)/ninc
-            if (ifstress(i) == 0) dstran(i)   = dtime*deltaLoadCirc(i)*wd(i)*cos(wd(i)*t + w0(i)) + deltaLoad(i)/ninc
+            if (ifstress(i) == 1) ddstress(i) = dtime*delta_load_circ(i)*wd(i)*cos(wd(i)*t + w0(i)) + delta_load(i)/n_inc
+            if (ifstress(i) == 0) dstran(i)   = dtime*delta_load_circ(i)*wd(i)*cos(wd(i)*t + w0(i)) + delta_load(i)/n_inc
          end do
       end if
 
-      if (keywords(2) == '*PerturbationsS') then
-         ddstress(1) = deltaLoad(1) * cos(time(1) * 2.0_dp * Pi / deltaTime)
-         ddstress(2) = deltaLoad(1) * sin(time(1) * 2.0_dp * Pi / deltaTime)
+      if (load_type == '*PerturbationsS') then
+         ddstress(1) = delta_load(1) * cos(time(1) * 2.0_dp * Pi / delta_time)
+         ddstress(2) = delta_load(1) * sin(time(1) * 2.0_dp * Pi / delta_time)
       end if
 
-      if (keywords(2) == '*PerturbationsE') then
-         dstran(1) = deltaLoad(1) * cos(time(1) * 2.0_dp * Pi / deltaTime)
-         dstran(2) = deltaLoad(1) * sin(time(1) * 2.0_dp * Pi / deltaTime)
+      if (load_type == '*PerturbationsE') then
+         dstran(1) = delta_load(1) * cos(time(1) * 2.0_dp * Pi / delta_time)
+         dstran(2) = delta_load(1) * sin(time(1) * 2.0_dp * Pi / delta_time)
       end if
 
-      if (keywords(2) == '*RandomWalk') then
+      if (load_type == '*RandomWalk') then
          call random_seed()
          do i = 1, 6
             call random_number(arandom)
-            if (ifstress(i) == 1) ddstress(i) = 2.0_dp*(arandom - 0.5_dp)*deltaLoad(i)
-            if (ifstress(i) == 0) dstran(i)   = 2.0_dp*(arandom - 0.5_dp)*deltaLoad(i)
+            if (ifstress(i) == 1) ddstress(i) = 2.0_dp*(arandom - 0.5_dp)*delta_load(i)
+            if (ifstress(i) == 0) dstran(i)   = 2.0_dp*(arandom - 0.5_dp)*delta_load(i)
          end do
       end if
+
+      end associate
    end subroutine get_increment
 
 end module indr_loads
