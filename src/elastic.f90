@@ -1,4 +1,4 @@
-module mod_UMAT
+module indr_umat
    use stdlib_kinds, only: dp
    implicit none
    private
@@ -57,5 +57,5 @@ contains
       ENDDO
       RETURN
    END
-end module mod_UMAT
+end module indr_umat
 

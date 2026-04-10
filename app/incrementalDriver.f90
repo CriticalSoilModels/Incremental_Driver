@@ -40,8 +40,8 @@ PROGRAM that_calls_umat   ! written by  A.Niemunis  2007 - 2023
    ! Temporarily using the local elastic UMAT.
    ! critical-soil-models (UMAT_MCSS) is the intended target but is blocked
    ! by aba_param.inc in NorSand — revisit once that is resolved upstream.
-   use mod_UMAT, only: UMAT
-   use mod_run_model, only: run_model
+   use indr_umat, only: UMAT
+   use indr_run_model, only: run_model
 
    implicit none
 

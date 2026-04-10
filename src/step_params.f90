@@ -1,6 +1,6 @@
-module mod_step_params
+module indr_step_params
    use stdlib_kinds, only: dp
-   use mod_constants, only: max_fname_len, voight_len
+   use indr_constants, only: max_fname_len, voight_len
 
    implicit none
 
@@ -116,4 +116,4 @@ contains
       columnsInFile  = ofStep%columnsInFile    ! AN 2016    7 integers with numbers of columns  (or value = 0)
       importFactor   = ofStep%importFactor     !! AN 2016   7 real factors to be multiplied with columns  ! jump over reading, because reading of steps is performed only on the first loop, when iRepetition==1
    end subroutine get_repetition_params
-end module mod_step_params
+end module indr_step_params

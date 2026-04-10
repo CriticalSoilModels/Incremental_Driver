@@ -1,4 +1,4 @@
-module mod_maps
+module indr_maps
     use stdlib_kinds, only: dp
 
    implicit none
@@ -68,4 +68,4 @@ contains
       map2T = reshape( [b(1),b(4),b(5), b(4),b(2),b(6),  b(5),b(6),b(3) ],[3,3] )
    end function map2T
 
-end module mod_maps
+end module indr_maps

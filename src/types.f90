@@ -1,6 +1,6 @@
-module mod_types
+module indr_types
     use stdlib_kinds, only: dp
-    use mod_constants, only: voight_len
+    use indr_constants, only: voight_len
    implicit none
 !    private
 !    public:: 
@@ -16,4 +16,4 @@ module mod_types
 contains
 
 
-end module mod_types
+end module indr_types

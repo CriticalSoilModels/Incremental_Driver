@@ -1,4 +1,4 @@
-module mod_command_line
+module indr_command_line
    implicit none(type, external)
    private
    public :: set_inputs
@@ -78,4 +78,4 @@ contains
          testfilename, outputfilename, verbose)
 
    end subroutine set_inputs
-end module mod_command_line
+end module indr_command_line

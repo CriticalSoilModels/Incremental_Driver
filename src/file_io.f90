@@ -1,9 +1,9 @@
 
  !! Module contains scripts for reading and writing information to files
-module mod_file_io
+module indr_file_io
    use stdlib_kinds, only: dp
    use stdlib_io, only: open, get_line
-   use mod_constants, only: max_fname_len, max_mater_len, voight_len, max_head_len
+   use indr_constants, only: max_fname_len, max_mater_len, voight_len, max_head_len
 
    implicit none(type, external)
    private
@@ -204,4 +204,4 @@ contains
       write(output_file_id,'(500(g17.10,3h    ))') time+(/dtime,dtime/), strain, stress, state_vars
 
    end subroutine write_line_output_data
-end module mod_file_io
+end module indr_file_io

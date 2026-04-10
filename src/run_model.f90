@@ -1,21 +1,21 @@
-module mod_run_model
+module indr_run_model
 
    use stdlib_kinds, only: dp
    use stdlib_io, only: open
    use mod_inc_driver_funcs, only: splitaLine, ReadStepCommons, PARSER, get_increment,USOLVER, EXITNOW
 
-   use mod_types   , only: StressAlignment
-   use mod_step_params, only: descriptionOfStep, get_repetition_params, set_repetition_params
-   use mod_matrices, only: MRoscI, MRoscImt, MRendul, MRendulmT, MRosc, MRoscmT, MCart, MCartmT
+   use indr_types   , only: StressAlignment
+   use indr_step_params, only: descriptionOfStep, get_repetition_params, set_repetition_params
+   use indr_matrices, only: MRoscI, MRoscImt, MRendul, MRendulmT, MRosc, MRoscmT, MCart, MCartmT
 
-   use mod_command_line, only: set_inputs
-   use mod_file_io, only: read_parameter_file, read_init_conditions_file, set_output_name_from_test_file, &
+   use indr_command_line, only: set_inputs
+   use indr_file_io, only: read_parameter_file, read_init_conditions_file, set_output_name_from_test_file, &
       write_line_output_data, write_output_file_header
-   use mod_alignment, only: readAlignment, tryAlignStress
-   use mod_loads
-   use mod_maps
-   use mod_constants, only: iter_lower_limit
-   use mod_value_checks, only: set_zero_with_tol, check_stress_inc_size
+   use indr_alignment, only: readAlignment, tryAlignStress
+   use indr_loads
+   use indr_maps
+   use indr_constants, only: iter_lower_limit
+   use indr_value_checks, only: set_zero_with_tol, check_stress_inc_size
 
    implicit none(type, external)
 
@@ -472,4 +472,4 @@ contains
       close(output_file_id)
 
    end subroutine run_model
-end module mod_run_model
+end module indr_run_model

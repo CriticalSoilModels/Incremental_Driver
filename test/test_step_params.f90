@@ -1,8 +1,8 @@
 program test_step_params
    ! Round-trip test: set_repetition_params -> get_repetition_params recovers all fields
    use stdlib_kinds, only: dp
-   use mod_step_params, only: descriptionOfStep, set_repetition_params, get_repetition_params
-   use mod_constants, only: max_fname_len, voight_len
+   use indr_step_params, only: descriptionOfStep, set_repetition_params, get_repetition_params
+   use indr_constants, only: max_fname_len, voight_len
    implicit none
 
    integer :: nfail = 0

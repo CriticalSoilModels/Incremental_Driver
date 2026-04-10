@@ -1,6 +1,6 @@
 program test_value_checks
    use stdlib_kinds, only: dp
-   use mod_value_checks, only: set_zero_with_tol
+   use indr_value_checks, only: set_zero_with_tol
    implicit none
 
    integer :: nfail = 0

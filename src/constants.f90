@@ -1,4 +1,4 @@
-module mod_constants
+module indr_constants
     !! Module contains constants
     use stdlib_kinds, only: dp
     use stdlib_constants, only: pi_dp
@@ -14,4 +14,4 @@ module mod_constants
     integer, parameter :: iter_lower_limit = 5 !! Lowest allowed iterations for stress conditions
     ! real(dp), parameter:: pi = pi_dp
     
-end module mod_constants
+end module indr_constants

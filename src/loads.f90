@@ -1,10 +1,10 @@
-module mod_loads
+module indr_loads
    use stdlib_kinds, only: dp
    use mod_inc_driver_funcs, only: ReadStepCommons, splitaLine, parser
-   use mod_alignment, only: readAlignment
-   use mod_types, only: StressAlignment
-   use mod_constants, only: voight_len, max_fname_len, max_lname_len
-   use mod_step_params, only: descriptionOfStep
+   use indr_alignment, only: readAlignment
+   use indr_types, only: StressAlignment
+   use indr_constants, only: voight_len, max_fname_len, max_lname_len
+   use indr_step_params, only: descriptionOfStep
 
    implicit none
    ! private
@@ -458,4 +458,4 @@ contains
 
   
 
-end module mod_loads
+end module indr_loads

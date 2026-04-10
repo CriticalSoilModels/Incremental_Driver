@@ -1,4 +1,4 @@
-module mod_matrices
+module indr_matrices
    !! Module contains some predifined matrices
    use stdlib_kinds, only: dp
 
@@ -75,4 +75,4 @@ module mod_matrices
 
 
 
-end module mod_matrices
+end module indr_matrices

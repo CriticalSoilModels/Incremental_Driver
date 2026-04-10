@@ -1,6 +1,6 @@
-module mod_alignment
+module indr_alignment
     use stdlib_kinds, only: dp
-    use mod_types, only: StressAlignment
+    use indr_types, only: StressAlignment
     use mod_inc_driver_funcs, only: splitaLine
     ! private
     ! public :: 
@@ -49,4 +49,4 @@ contains
       forall(ie=1:ntens, align%isig(ie) /= 0) stress(ie)= aState( align%isig(ie))*align%sigFac(ie)
       return
    end subroutine  tryAlignStress
-end module mod_alignment
+end module indr_alignment

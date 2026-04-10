@@ -12,7 +12,7 @@
 !
 ! Expected stress increments are derived analytically and compared to UMAT output.
 program test_elastic_umat
-   use mod_UMAT, only: UMAT
+   use indr_umat, only: UMAT
    implicit none
 
    integer, parameter :: ntens = 6, ndi = 3, nshr = 3

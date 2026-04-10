@@ -1,4 +1,4 @@
-module mod_value_checks
+module indr_value_checks
    use stdlib_kinds, only: dp
    use stdlib_optval, only: optval
 
@@ -38,4 +38,4 @@ contains
       endif
    end subroutine check_stress_inc_size
 
-end module mod_value_checks
+end module indr_value_checks

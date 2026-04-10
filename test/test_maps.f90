@@ -1,6 +1,6 @@
 program test_maps
    use stdlib_kinds, only: dp
-   use mod_maps, only: map2T, map2stress, map2D, map2stran
+   use indr_maps, only: map2T, map2stress, map2D, map2stran
    implicit none
 
    integer :: nfail = 0
