@@ -6,7 +6,7 @@ module indr_run_model
    use indr_solver, only: USOLVER
 
    use indr_types   , only: StressAlignment
-   use indr_step_params, only: step_config_t, get_repetition_params, set_repetition_params
+   use indr_step_params, only: step_config_t
    use indr_matrices, only: MRoscI, MRoscImt, MRendul, MRendulmT, MRosc, MRoscmT, MCart, MCartmT
 
    use indr_command_line, only: set_inputs
@@ -103,8 +103,8 @@ contains
       real(dp),dimension(1:6,1:6)::M,MmT      !  currrent $\cM$ and $\cM^{-T}$  for a given iStep
 
       type(StressAlignment) :: align
-      type(step_config_t) :: ofStep(30)            !  stores descriptions of up to 30 steps which are repeated
-      type(step_config_t) :: inc_config            !  step config assembled for get_increment call
+      type(step_config_t) :: ofStep(30)   !  stores descriptions of up to 30 steps which are repeated
+      type(step_config_t) :: config       !  current step configuration, passed to get_increment
 
 
       ! [1]  Set the filenames and the verose seting
@@ -162,13 +162,29 @@ contains
                   ' TEMP = ', TEMP, &
                   ' TIME = ', TIME(1)
 
-               if(iRepetition > 1) then  ! while repeating  recall the loading parameters of the repeated step read in during the first iRepetition
-                  ! jump over reading, because reading of steps is performed only on the first loop, when iRepetition==1
-                  call get_repetition_params(ofstep(iStep), &
-                     ninc, maxiter, ifstress, deltaLoadCirc, phase0, &
-                     deltaLoad, dfgrd0, dfgrd1, deltaTime, keywords, cMe, cMt, mbinc, deltaTemp,&
-                     exitCond, existCond, ImportFileName, mImport, columnsInFile, importFactor)
-                  ! AN 2016   7 real factors to be multiplied with columns
+               if(iRepetition > 1) then  ! while repeating: restore the step config saved on the first iteration
+                  config        = ofStep(iStep)
+                  ninc          = config%n_inc
+                  maxiter       = config%max_iter
+                  ifstress      = config%ifstress
+                  deltaLoadCirc = config%delta_load_circ
+                  phase0        = config%phase0
+                  deltaLoad     = config%delta_load
+                  dfgrd0        = config%dfgrd0
+                  dfgrd1        = config%dfgrd1
+                  deltaTime     = config%delta_time
+                  keywords(2)   = config%load_type
+                  keywords(3)   = config%coord_sys
+                  cMe           = config%cMe
+                  cMt           = config%cMt
+                  mbinc         = config%mbinc
+                  deltaTemp     = config%delta_temp
+                  exitCond      = config%exit_cond
+                  existCond     = config%has_exit_cond
+                  ImportFileName = config%import_file
+                  mImport       = config%n_import
+                  columnsInFile = config%columns_in_file
+                  importFactor  = config%import_factor
                endif
 
                if(keywords(1) == '*Repetition') read(1,'(a)') keywords(2)          ! = *LinearLoad  or *CirculatingLoad or *ObeyRestrictions...
@@ -270,10 +286,31 @@ contains
 
                keywords(3) = trim(keywords(3))
 
-               if(keywords(1) == '*Repetition' .and. iRepetition == 1) then      !  remember the description of step for the next repetition
-                  ofStep(istep) = set_repetition_params(ninc, maxiter, ifstress, deltaLoadCirc, phase0, &
-                     deltaLoad, dfgrd0, dfgrd1, deltaTime, keywords, cMe, cMt, mbinc, deltaTemp, exitcond, &
-                     existcond, ImportFileName, mImport, columnsInFile, importFactor )
+               ! Pack local vars into config (once per step, before the increment loop)
+               config%n_inc           = ninc
+               config%max_iter        = maxiter
+               config%ifstress        = ifstress
+               config%delta_load_circ = deltaLoadCirc
+               config%phase0          = phase0
+               config%delta_load      = deltaLoad
+               config%dfgrd0          = dfgrd0
+               config%dfgrd1          = dfgrd1
+               config%delta_time      = deltaTime
+               config%load_type       = keywords(2)
+               config%coord_sys       = keywords(3)
+               config%cMe             = cMe
+               config%cMt             = cMt
+               config%mbinc           = mbinc
+               config%delta_temp      = deltaTemp
+               config%exit_cond       = exitCond
+               config%has_exit_cond   = existCond
+               config%import_file     = ImportFileName
+               config%n_import        = mImport
+               config%columns_in_file = columnsInFile
+               config%import_factor   = importFactor
+
+               if(keywords(1) == '*Repetition' .and. iRepetition == 1) then
+                  ofStep(iStep) = config   !  remember the step config for subsequent repetitions
                endif
 
                ! If the choosen load is stress controlled make sure at least iter_lower_limit number of iterations is done
@@ -347,17 +384,8 @@ contains
                      oldState(:) = newState(:)                                    ! AN 2016
                   endif                                                             ! AN 2016
 
-                  if(keywords(2) /= '*ImportFile') then                            ! AN 2016
-                     inc_config%load_type       = keywords(2)
-                     inc_config%coord_sys       = keywords(3)
-                     inc_config%delta_time      = deltaTime
-                     inc_config%n_inc           = ninc
-                     inc_config%ifstress        = ifstress
-                     inc_config%delta_load      = deltaLoad
-                     inc_config%delta_load_circ = deltaLoadCirc
-                     inc_config%phase0          = phase0
-                     inc_config%delta_temp      = deltaTemp
-                     call get_increment(inc_config, time, dtime, ddstress, dstran, dTemp, Qb33, dfgrd0, dfgrd1, drot)
+                  if(keywords(2) /= '*ImportFile') then
+                     call get_increment(config, time, dtime, ddstress, dstran, dTemp, Qb33, dfgrd0, dfgrd1, drot)
                   endif
 
 

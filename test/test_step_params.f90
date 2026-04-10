@@ -1,14 +1,16 @@
 program test_step_params
-   ! Round-trip test: set_repetition_params -> get_repetition_params recovers all fields
+   ! Tests for step_config_t: verify fields are readable/writable and struct
+   ! assignment copies all data correctly.
    use stdlib_kinds, only: dp
-   use indr_step_params, only: step_config_t, set_repetition_params, get_repetition_params
-   use indr_constants, only: max_fname_len, voigt_len
+   use indr_step_params, only: step_config_t
+   use indr_constants, only: voigt_len
    implicit none
 
    integer :: nfail = 0
    real(dp), parameter :: tol = 1.0e-14_dp
 
-   call test_roundtrip()
+   call test_field_assignment()
+   call test_struct_copy()
 
    if (nfail == 0) then
       print *, 'PASS  test_step_params'
@@ -19,130 +21,89 @@ program test_step_params
 
 contains
 
-   subroutine test_roundtrip()
-      type(step_config_t) :: step
-
-      ! Input values
-      integer  :: ninc_in, maxiter_in, ifstress_in(voigt_len)
-      integer  :: mImport_in, columnsInFile_in(7)
-      real(dp) :: deltaLoadCirc_in(6), phase0_in(6), deltaLoad_in(9)
-      real(dp) :: dfgrd0_in(3,3), dfgrd1_in(3,3), deltaTime_in, deltaTemp_in
-      real(dp) :: cMe_in(6,6), cMt_in(6,6), mbinc_in(6), importFactor_in(7)
-      character(len=10)       :: keywords_in(3)
-      character(len=40)       :: exitCond_in
-      logical                 :: existCond_in
-      character(max_fname_len) :: ImportFileName_in
-
-      ! Output values (recovered)
-      integer  :: ninc_out, maxiter_out, ifstress_out(voigt_len)
-      integer  :: mImport_out, columnsInFile_out(7)
-      real(dp) :: deltaLoadCirc_out(6), phase0_out(6), deltaLoad_out(9)
-      real(dp) :: dfgrd0_out(3,3), dfgrd1_out(3,3), deltaTime_out, deltaTemp_out
-      real(dp) :: cMe_out(6,6), cMt_out(6,6), mbinc_out(6), importFactor_out(7)
-      character(len=10)        :: keywords_out(3)
-      character(len=40)        :: exitCond_out
-      logical                  :: existCond_out
-      character(max_fname_len) :: ImportFileName_out
-
+   subroutine test_field_assignment()
+      ! Verify all fields can be set and read back.
+      type(step_config_t) :: cfg
       integer :: i
 
-      ! Set known input values
-      ninc_in           = 100
-      maxiter_in        = 50
-      ifstress_in       = [1, 0, 1, 0, 1, 0]
-      deltaLoadCirc_in  = [1.0_dp, 2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp, 6.0_dp]
-      phase0_in         = [0.1_dp, 0.2_dp, 0.3_dp, 0.4_dp, 0.5_dp, 0.6_dp]
-      deltaLoad_in      = [10.0_dp, 20.0_dp, 30.0_dp, 40.0_dp, 50.0_dp, &
-                           60.0_dp, 70.0_dp, 80.0_dp, 90.0_dp]
-      dfgrd0_in         = reshape([(real(i,dp)*0.1_dp, i=1,9)], [3,3])
-      dfgrd1_in         = reshape([(real(i,dp)*0.2_dp, i=1,9)], [3,3])
-      deltaTime_in      = 1.5_dp
-      deltaTemp_in      = 25.0_dp
-      keywords_in(1)    = '*Step'
-      keywords_in(2)    = '*LinearLo'  ! 10-char truncation of '*LinearLoad'
-      keywords_in(3)    = 'somekey'
-      cMe_in            = 0.0_dp
-      cMt_in            = 0.0_dp
+      cfg%n_inc           = 50
+      cfg%max_iter        = 25
+      cfg%ifstress        = [1, 0, 1, 0, 1, 0]
+      cfg%delta_load      = [(real(i,dp)*10.0_dp, i=1,9)]
+      cfg%delta_load_circ = [(real(i,dp)*1.0_dp,  i=1,6)]
+      cfg%phase0          = [(real(i,dp)*0.1_dp,  i=1,6)]
+      cfg%delta_time      = 2.5_dp
+      cfg%delta_temp      = 10.0_dp
+      cfg%load_type       = '*LinearLoad'
+      cfg%coord_sys       = '*Roscoe'
+      cfg%exit_cond       = '*StressCondition'
+      cfg%has_exit_cond   = .true.
+      cfg%import_file     = 'data.dat'
+      cfg%n_import        = 4
+      cfg%columns_in_file = [1,2,3,4,5,6,7]
+      cfg%import_factor   = [(real(i,dp)*0.5_dp, i=1,7)]
+      cfg%dfgrd0          = reshape([(real(i,dp)*0.1_dp, i=1,9)], [3,3])
+      cfg%dfgrd1          = reshape([(real(i,dp)*0.2_dp, i=1,9)], [3,3])
+      cfg%cMt             = 0.0_dp
+      cfg%cMe             = 0.0_dp
       do i = 1, 6
-         cMe_in(i,i) = real(i, dp) * 10.0_dp
-         cMt_in(i,i) = real(i, dp) * 5.0_dp
+         cfg%cMt(i,i) = real(i, dp)
+         cfg%cMe(i,i) = real(i, dp) * 2.0_dp
       end do
-      mbinc_in          = [7.0_dp, 8.0_dp, 9.0_dp, 10.0_dp, 11.0_dp, 12.0_dp]
-      exitCond_in       = '*StressCondition'
-      existCond_in      = .true.
-      ImportFileName_in = 'myfile.dat'
-      mImport_in        = 3
-      columnsInFile_in  = [1, 2, 3, 4, 5, 6, 7]
-      importFactor_in   = [1.1_dp, 2.2_dp, 3.3_dp, 4.4_dp, 5.5_dp, 6.6_dp, 7.7_dp]
+      cfg%mbinc           = [(real(i,dp)*3.0_dp, i=1,6)]
 
-      ! Pack
-      step = set_repetition_params(ninc_in, maxiter_in, ifstress_in, deltaLoadCirc_in, &
-         phase0_in, deltaLoad_in, dfgrd0_in, dfgrd1_in, deltaTime_in, keywords_in, &
-         cMe_in, cMt_in, mbinc_in, deltaTemp_in, exitCond_in, existCond_in, &
-         ImportFileName_in, mImport_in, columnsInFile_in, importFactor_in)
-
-      ! Unpack
-      call get_repetition_params(step, ninc_out, maxiter_out, ifstress_out, deltaLoadCirc_out, &
-         phase0_out, deltaLoad_out, dfgrd0_out, dfgrd1_out, deltaTime_out, keywords_out, &
-         cMe_out, cMt_out, mbinc_out, deltaTemp_out, exitCond_out, existCond_out, &
-         ImportFileName_out, mImport_out, columnsInFile_out, importFactor_out)
-
-      ! Check scalar integers
-      if (ninc_out /= ninc_in) then
-         print *, 'FAIL  test_roundtrip: ninc expected', ninc_in, 'got', ninc_out
-         nfail = nfail + 1
+      if (cfg%n_inc /= 50) then
+         print *, 'FAIL  test_field_assignment: n_inc'; nfail = nfail + 1
       end if
-      if (maxiter_out /= maxiter_in) then
-         print *, 'FAIL  test_roundtrip: maxiter expected', maxiter_in, 'got', maxiter_out
-         nfail = nfail + 1
+      if (cfg%max_iter /= 25) then
+         print *, 'FAIL  test_field_assignment: max_iter'; nfail = nfail + 1
       end if
+      if (cfg%ifstress(1) /= 1 .or. cfg%ifstress(2) /= 0) then
+         print *, 'FAIL  test_field_assignment: ifstress'; nfail = nfail + 1
+      end if
+      if (abs(cfg%delta_time - 2.5_dp) > tol) then
+         print *, 'FAIL  test_field_assignment: delta_time'; nfail = nfail + 1
+      end if
+      if (trim(cfg%load_type) /= '*LinearLoad') then
+         print *, 'FAIL  test_field_assignment: load_type'; nfail = nfail + 1
+      end if
+      if (.not. cfg%has_exit_cond) then
+         print *, 'FAIL  test_field_assignment: has_exit_cond'; nfail = nfail + 1
+      end if
+      if (cfg%n_import /= 4) then
+         print *, 'FAIL  test_field_assignment: n_import'; nfail = nfail + 1
+      end if
+   end subroutine test_field_assignment
 
-      ! Check ifstress
-      do i = 1, voigt_len
-         if (ifstress_out(i) /= ifstress_in(i)) then
-            print *, 'FAIL  test_roundtrip: ifstress(', i, ') expected', ifstress_in(i), 'got', ifstress_out(i)
-            nfail = nfail + 1
-         end if
-      end do
+   subroutine test_struct_copy()
+      ! Verify that cfg2 = cfg1 copies all data (no hidden aliasing).
+      type(step_config_t) :: cfg1, cfg2
 
-      ! Check scalar reals
-      if (abs(deltaTime_out - deltaTime_in) > tol) then
-         print *, 'FAIL  test_roundtrip: deltaTime expected', deltaTime_in, 'got', deltaTime_out
-         nfail = nfail + 1
-      end if
-      if (abs(deltaTemp_out - deltaTemp_in) > tol) then
-         print *, 'FAIL  test_roundtrip: deltaTemp expected', deltaTemp_in, 'got', deltaTemp_out
-         nfail = nfail + 1
-      end if
+      cfg1%n_inc     = 100
+      cfg1%delta_time = 5.0_dp
+      cfg1%load_type = '*CirculatingLoad'
+      cfg1%ifstress  = [1,1,0,0,0,0]
 
-      ! Check load_type and coord_sys (keyword1 is not stored in step_config_t)
-      if (trim(keywords_out(2)) /= trim(keywords_in(2))) then
-         print *, 'FAIL  test_roundtrip: keywords(2) expected "', trim(keywords_in(2)), &
-                  '" got "', trim(keywords_out(2)), '"'
-         nfail = nfail + 1
+      cfg2 = cfg1
+
+      if (cfg2%n_inc /= 100) then
+         print *, 'FAIL  test_struct_copy: n_inc'; nfail = nfail + 1
       end if
-      if (trim(keywords_out(3)) /= trim(keywords_in(3))) then
-         print *, 'FAIL  test_roundtrip: keywords(3) expected "', trim(keywords_in(3)), &
-                  '" got "', trim(keywords_out(3)), '"'
-         nfail = nfail + 1
+      if (abs(cfg2%delta_time - 5.0_dp) > tol) then
+         print *, 'FAIL  test_struct_copy: delta_time'; nfail = nfail + 1
+      end if
+      if (trim(cfg2%load_type) /= '*CirculatingLoad') then
+         print *, 'FAIL  test_struct_copy: load_type'; nfail = nfail + 1
+      end if
+      if (cfg2%ifstress(3) /= 0) then
+         print *, 'FAIL  test_struct_copy: ifstress'; nfail = nfail + 1
       end if
 
-      ! Check exit_cond and has_exit_cond
-      if (trim(exitCond_out) /= trim(exitCond_in)) then
-         print *, 'FAIL  test_roundtrip: exit_cond mismatch'
-         nfail = nfail + 1
+      ! Mutate cfg2 and verify cfg1 is unaffected
+      cfg2%n_inc = 999
+      if (cfg1%n_inc /= 100) then
+         print *, 'FAIL  test_struct_copy: struct copy is aliased!'; nfail = nfail + 1
       end if
-      if (existCond_out .neqv. existCond_in) then
-         print *, 'FAIL  test_roundtrip: has_exit_cond expected', existCond_in, 'got', existCond_out
-         nfail = nfail + 1
-      end if
-
-      ! Check n_import
-      if (mImport_out /= mImport_in) then
-         print *, 'FAIL  test_roundtrip: n_import expected', mImport_in, 'got', mImport_out
-         nfail = nfail + 1
-      end if
-
-   end subroutine test_roundtrip
+   end subroutine test_struct_copy
 
 end program test_step_params
