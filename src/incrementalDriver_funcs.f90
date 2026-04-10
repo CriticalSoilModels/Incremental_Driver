@@ -6,7 +6,8 @@ module mod_inc_driver_funcs
    implicit none
    private
    public :: splitaLine, ReadStepCommons, PARSER, get_increment, USOLVER, EXITNOW, &
-             SINV, ROTSIG, SPRINC, SPRIND
+             SINV, ROTSIG, SPRINC, SPRIND, &
+             inv33, spectral_decomposition_of_symmetric
 contains
 
 
@@ -124,29 +125,25 @@ contains
 
       return
 
-   contains !=======================================================
-
-      !  contained in get\_increment inverts a 3x3 matrix
-      function inv33( a )  !==================contained in get\_increment
-         implicit none
-         real(dp), dimension(3,3), intent(in) :: a
-         real(dp), dimension(3,3) :: b
-         real(dp), dimension(3,3) :: inv33
-         real(dp) :: det
-         det = - a(1,3)*a(2,2)*a(3,1) + a(1,2)*a(2,3)*a(3,1) &
-            + a(1,3)*a(2,1)*a(3,2) - a(1,1)*a(2,3)*a(3,2) &
-            - a(1,2)*a(2,1)*a(3,3) + a(1,1)*a(2,2)*a(3,3)
-
-         b= reshape( [-a(2,3)*a(3,2) + a(2,2)*a(3,3), a(1,3)*a(3,2) - a(1,2)*a(3,3), &
-            -a(1,3)*a(2,2) + a(1,2)*a(2,3), a(2,3)*a(3,1) - a(2,1)*a(3,3), &
-            -a(1,3)*a(3,1) + a(1,1)*a(3,3), a(1,3)*a(2,1) - a(1,1)*a(2,3), &
-            -a(2,2)*a(3,1) + a(2,1)*a(3,2), a(1,2)*a(3,1) - a(1,1)*a(3,2), &
-            -a(1,2)*a(2,1) + a(1,1)*a(2,2)],                               &
-            [3,3])
-         inv33 = transpose(b)/det
-      end function inv33
-
    end subroutine get_increment
+
+   ! Inverts a 3x3 matrix using the analytic cofactor formula
+   function inv33(a)
+      implicit none
+      real(dp), dimension(3,3), intent(in) :: a
+      real(dp), dimension(3,3) :: inv33
+      real(dp), dimension(3,3) :: b
+      real(dp) :: det
+      det = - a(1,3)*a(2,2)*a(3,1) + a(1,2)*a(2,3)*a(3,1) &
+         + a(1,3)*a(2,1)*a(3,2) - a(1,1)*a(2,3)*a(3,2) &
+         - a(1,2)*a(2,1)*a(3,3) + a(1,1)*a(2,2)*a(3,3)
+      b = reshape( [-a(2,3)*a(3,2) + a(2,2)*a(3,3), a(1,3)*a(3,2) - a(1,2)*a(3,3), &
+         -a(1,3)*a(2,2) + a(1,2)*a(2,3), a(2,3)*a(3,1) - a(2,1)*a(3,3), &
+         -a(1,3)*a(3,1) + a(1,1)*a(3,3), a(1,3)*a(2,1) - a(1,1)*a(2,3), &
+         -a(2,2)*a(3,1) + a(2,1)*a(3,2), a(1,2)*a(3,1) - a(1,1)*a(3,2), &
+         -a(1,2)*a(2,1) + a(1,1)*a(2,2)], [3,3])
+      inv33 = transpose(b)/det
+   end function inv33
 
 
 

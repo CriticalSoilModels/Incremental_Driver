@@ -166,6 +166,22 @@ Once `aba_param.inc` issue is resolved upstream:
 
 ---
 
+### Phase 7 — stdlib Linear Algebra Integration
+
+Replace hand-rolled linear algebra in `indr_linalg` with stdlib equivalents once
+Phase 3 extraction is complete and all tests are stable.
+
+Candidates:
+- `inv33` → `stdlib_linalg` `inv` (general matrix inverse)
+- `spectral_decomposition_of_symmetric` + helpers (`app_jacobian_similarity`,
+  `get_jacobian_rot`) → `stdlib_linalg` `eigh` (symmetric eigendecomposition)
+- `xLittleUnsymmetricSolver` (inside `USOLVER`) → `stdlib_linalg` `solve`
+
+**Rule:** do not mix this with any other change — one stdlib swap per commit,
+tests must pass before and after.
+
+---
+
 ## Modernization Rules (quick reference)
 
 1. **Tests before refactoring** — a failing test after extraction means you broke something
