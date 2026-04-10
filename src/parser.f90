@@ -45,6 +45,7 @@ contains
       logical  :: okSplit
       character(len=40) :: aShortLine, leftLine, rightLine
 
+      deltaTemp = 0.0_dp
       read(file_id, '(a)') aShortLine
       call splitaLine(aShortLine, ':', leftLine, rightLine, okSplit)
       read(leftLine, *) ninc, maxiter, deltaTime

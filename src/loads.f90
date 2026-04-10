@@ -86,7 +86,7 @@ contains
       read(test_file_id,*) keyword                                           !  = Cartesian or Roscoe  or RoscoeIsomorph or Rendulic
       keyword  = trim(keyword)
       do i=1,6
-         read(1,*) ifstress(i), deltaLoad(i)                           !  dload means total change in the whole step here
+         read(test_file_id,*) ifstress(i), deltaLoad(i)                !  dload means total change in the whole step here
       enddo
 
    end subroutine read_linear_load
@@ -453,7 +453,7 @@ contains
       end if
 
       do i=1,6
-         read(1,*) ifstress(i),deltaLoad(i)    !  dload means max abs value of to be multiplied by random in (-1,1)
+         read(test_file_id,*) ifstress(i),deltaLoad(i)    !  dload means max abs value, multiplied by random in (-1,1)
       enddo
    end subroutine read_random_walk_load
 
