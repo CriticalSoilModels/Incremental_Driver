@@ -1,6 +1,6 @@
 program test_abaqus_utils
    use stdlib_kinds, only: dp
-   use mod_inc_driver_funcs, only: SINV, ROTSIG, SPRINC
+   use indr_abaqus_utils, only: SINV, ROTSIG, SPRINC
    implicit none
 
    integer :: nfail = 0

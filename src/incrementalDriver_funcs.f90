@@ -5,6 +5,7 @@ module mod_inc_driver_funcs
    use stdlib_kinds, only: dp
    use indr_linalg, only: inv33, spectral_decomposition_of_symmetric, &
                           app_jacobian_similarity, get_jacobian_rot
+   use indr_abaqus_utils, only: SINV, ROTSIG, SPRINC, SPRIND, XIT
    implicit none
    private
    public :: splitaLine, ReadStepCommons, PARSER, get_increment, USOLVER, EXITNOW, &
@@ -129,93 +130,8 @@ contains
 
    end subroutine get_increment
 
-   ! inv33 moved to indr_linalg (re-exported via use above)
-
-
-
-!    Imitation of utility routine provided by abaqus for people writing  umats
-!     rotates a tensor input as vector : if  LSTR == 1 $\to$  stress  or    LSTR == 0 $\to$  strain
-   SUBROUTINE ROTSIG(S,R,SPRIME,LSTR,NDI,NSHR)
-      implicit none
-      integer, intent(in) ::  LSTR,NDI,NSHR
-      integer :: ntens
-      real(dp), dimension(3,3),intent(in) ::  R
-      real(dp), dimension(1:NDI+NSHR), intent(in) :: S
-      real(dp), dimension(1:NDI+NSHR) , intent(out):: SPRIME
-      real(dp)::  a(6), b(3,3)
-      ntens = ndi+nshr
-      a(:) = 0
-      a(1:ntens) = S(:)
-
-      if(LSTR==1) b = reshape( [a(1),a(4),a(5),a(4),a(2),a(6), a(5),a(6),a(3)], [3,3] )
-      if(LSTR==0) b = reshape([a(1),a(4)/2,a(5)/2,a(4)/2,a(2),a(6)/2, a(5)/2, a(6)/2, a(3) ],[3,3] )
-
-      b = matmul( matmul(R,b),transpose(R))
-      if(LSTR==1) a = [b(1,1),b(2,2),b(3,3),b(1,2),b(1,3),b(2,3)]
-      if(LSTR==0) a = [b(1,1),b(2,2),b(3,3),2*b(1,2),2*b(1,3),2*b(2,3)]
-      SPRIME = a(1:ntens)
-      return
-   END  SUBROUTINE ROTSIG
-
-
-!    Imitation of utility routine provided by abaqus for people writing  umats
-!    returns  two  stress invariants
-   subroutine SINV(STRESS,SINV1,SINV2,NDI,NSHR)
-      implicit none
-      real(dp),intent(in) :: STRESS(NDI+NSHR)
-      real(dp),intent(out) ::  SINV1,SINV2
-      integer, intent(in) ::  NDI,NSHR
-      real(dp) :: devia(NDI+NSHR)
-      real(dp), parameter :: sq2 = 1.4142135623730950488d0
-      if(NDI /= 3) stop 'stopped because ndi/=3 in sinv'
-      sinv1 = (stress(1) + stress(2) + stress(3) )/3.0d0
-      devia(1:3) = stress(1:3) - sinv1
-      devia(3+1:3+nshr) = stress(3+1:3+nshr) * sq2
-      sinv2 = sqrt(1.5d0 *  dot_product(devia, devia)  )
-   end subroutine SINV
-
-   !    Imitation of utility routine provided by abaqus for people writing  umats
-   !    returns  principal values if  LSTR == 1 ->  for stress  or    LSTR == 2 ->   for strain
-   subroutine SPRINC(S,PS,LSTR,NDI,NSHR)
-      integer, intent(in) :: LSTR,NDI,NSHR
-      real(dp),intent(in) :: S(NDI+NSHR)
-      real(dp),intent(out) :: PS(NDI+NSHR)
-      real(dp):: A(3,3),AN(3,3)
-      real(dp) :: r(6)
-      if(NDI /= 3) stop 'stopped because ndi/=3 in sprinc'
-      r(1:3) = s(1:3)
-      if(LSTR == 1 .and. nshr > 0) r(4:3+nshr) = s(4:3+nshr)
-      if(LSTR == 2 .and. nshr > 0) r(4:3+nshr) = s(4:3+nshr)/2
-      A= reshape([r(1),r(4),r(5),r(4),r(2),r(6),r(5),r(6),r(3)],[3,3])
-      call spectral_decomposition_of_symmetric(A, PS, AN, 3)
-      return
-   end subroutine SPRINC
-
-   !    Imitation of utility routine provided by abaqus for people writing  umats
-   !     returns principal directions LSTR == 1 ->   stress  or    LSTR == 2 ->   strain
-   subroutine SPRIND(S,PS,AN,LSTR,NDI,NSHR)
-      implicit none
-      real(dp),intent(in) :: S(NDI+NSHR)
-      real(dp),intent(out) :: PS(3),AN(3,3)
-      integer, intent(in) :: LSTR,NDI,NSHR
-      real(dp):: A(3,3)
-      real(dp) :: r(6)
-      if(NDI /= 3) stop 'stopped because ndi/=3 in sprind'
-      r(1:3) = s(1:3)
-      if(LSTR == 1 .and. nshr > 0) r(4:3+nshr) = s(4:3+nshr)
-      if(LSTR == 2 .and. nshr > 0) r(4:3+nshr) = s(4:3+nshr)/2
-      A= reshape([r(1),r(4),r(5),r(4),r(2),r(6),r(5),r(6),r(3)],[3,3])
-      call spectral_decomposition_of_symmetric(A, PS, AN, 3)
-      return
-   end subroutine SPRIND
-
-   !    Imitation of quit utility routine provided by abaqus for people writing  umats
-   subroutine XIT
-      stop 'stopped because umat called XIT'
-   end subroutine XIT
-
-   ! spectral_decomposition_of_symmetric, app_jacobian_similarity, get_jacobian_rot
-   ! moved to indr_linalg (re-exported via use above)
+   ! inv33, spectral_decomposition_of_symmetric moved to indr_linalg (re-exported via use above)
+   ! ROTSIG, SINV, SPRINC, SPRIND, XIT moved to indr_abaqus_utils (re-exported via use above)
 
    subroutine ReadStepCommons(file_id, ninc, maxiter,deltaTime, deltaTemp, every)   ! AN 2023 temperat
       !! Read the increments and other information for the load??
