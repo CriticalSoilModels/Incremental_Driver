@@ -318,8 +318,7 @@ contains
                         if (config%ifstress(i)==0) dstran(i)  = dState(config%columns_in_file(i))* config%import_factor(i)
                      enddo
 
-                     if(config%columns_in_file(7)/= 0) config%delta_time= dState(config%columns_in_file(7)) * config%import_factor(7)   ! AN 2016
-                     dtime = config%delta_time                                     ! AN 2016
+                     if(config%columns_in_file(7)/= 0) dtime = dState(config%columns_in_file(7)) * config%import_factor(7)   ! AN 2016
                      oldState(:) = newState(:)                                    ! AN 2016
                   endif                                                             ! AN 2016
 
