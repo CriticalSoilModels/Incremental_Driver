@@ -7,6 +7,7 @@ program test_read_loads
                          read_deformation_gradient_load,           &
                          read_oedometric_load, read_pure_creep_load, &
                          read_undrained_creep
+   use indr_step_params, only: step_config_t
    implicit none
 
    integer :: nfail = 0
@@ -38,10 +39,8 @@ contains
    ! ---------------------------------------------------------------------------
 
    subroutine test_linear_load_stress_ctrl()
-      integer  :: fid, ninc, maxiter, write_freq
-      integer  :: ifstress(6)
-      real(dp) :: deltaTime, deltaTemp, deltaLoad(9)
-      character(10) :: keyword
+      integer             :: fid, write_freq
+      type(step_config_t) :: cfg
 
       open(newunit=fid, status='scratch')
       write(fid, '(a)') '10 50 1.0 T 0.0'
@@ -54,33 +53,31 @@ contains
       write(fid, '(a)') '0  0.0'
       rewind(fid)
 
-      deltaLoad = 0.0_dp
-      call read_linear_load(fid, ninc, maxiter, deltaTime, deltaTemp, write_freq, keyword, ifstress, deltaLoad)
+      cfg%delta_load = 0.0_dp
+      call read_linear_load(fid, cfg, write_freq)
       close(fid)
 
-      call check_int(ninc,    10,     'linear_stress_ctrl: ninc',    nfail)
-      call check_int(maxiter, 50,     'linear_stress_ctrl: maxiter', nfail)
-      call check_real(deltaTime, 1.0_dp, tol, 'linear_stress_ctrl: deltaTime', nfail)
-      call check_real(deltaTemp, 0.0_dp, tol, 'linear_stress_ctrl: deltaTemp', nfail)
+      call check_int(cfg%n_inc,    10,     'linear_stress_ctrl: n_inc',    nfail)
+      call check_int(cfg%max_iter, 50,     'linear_stress_ctrl: max_iter', nfail)
+      call check_real(cfg%delta_time, 1.0_dp, tol, 'linear_stress_ctrl: delta_time', nfail)
+      call check_real(cfg%delta_temp, 0.0_dp, tol, 'linear_stress_ctrl: delta_temp', nfail)
       call check_int(write_freq, 1,   'linear_stress_ctrl: write_freq', nfail)
-      if (trim(keyword) /= '*Roscoe') then
-         print *, 'FAIL  linear_stress_ctrl: keyword expected "*Roscoe" got "', trim(keyword), '"'
+      if (trim(cfg%coord_sys) /= '*Roscoe') then
+         print *, 'FAIL  linear_stress_ctrl: coord_sys expected "*Roscoe" got "', trim(cfg%coord_sys), '"'
          nfail = nfail + 1
       end if
-      call check_int(ifstress(1), 1,      'linear_stress_ctrl: ifstress(1)', nfail)
-      call check_int(ifstress(4), 0,      'linear_stress_ctrl: ifstress(4)', nfail)
-      call check_real(deltaLoad(1), 100.0_dp, tol, 'linear_stress_ctrl: deltaLoad(1)', nfail)
-      call check_real(deltaLoad(2), 200.0_dp, tol, 'linear_stress_ctrl: deltaLoad(2)', nfail)
-      call check_real(deltaLoad(3), 300.0_dp, tol, 'linear_stress_ctrl: deltaLoad(3)', nfail)
-      call check_real(deltaLoad(4),   0.0_dp, tol, 'linear_stress_ctrl: deltaLoad(4)', nfail)
+      call check_int(cfg%ifstress(1), 1,      'linear_stress_ctrl: ifstress(1)', nfail)
+      call check_int(cfg%ifstress(4), 0,      'linear_stress_ctrl: ifstress(4)', nfail)
+      call check_real(cfg%delta_load(1), 100.0_dp, tol, 'linear_stress_ctrl: delta_load(1)', nfail)
+      call check_real(cfg%delta_load(2), 200.0_dp, tol, 'linear_stress_ctrl: delta_load(2)', nfail)
+      call check_real(cfg%delta_load(3), 300.0_dp, tol, 'linear_stress_ctrl: delta_load(3)', nfail)
+      call check_real(cfg%delta_load(4),   0.0_dp, tol, 'linear_stress_ctrl: delta_load(4)', nfail)
    end subroutine test_linear_load_stress_ctrl
 
    subroutine test_linear_load_mixed_ctrl()
       !! Verify mixed stress/strain control and write_freq from ':' field.
-      integer  :: fid, ninc, maxiter, write_freq
-      integer  :: ifstress(6)
-      real(dp) :: deltaTime, deltaTemp, deltaLoad(9)
-      character(10) :: keyword
+      integer             :: fid, write_freq
+      type(step_config_t) :: cfg
 
       open(newunit=fid, status='scratch')
       write(fid, '(a)') '20 100 2.5 T 10.0 : 4'
@@ -93,19 +90,19 @@ contains
       write(fid, '(a)') '0  0.0'
       rewind(fid)
 
-      deltaLoad = 0.0_dp
-      call read_linear_load(fid, ninc, maxiter, deltaTime, deltaTemp, write_freq, keyword, ifstress, deltaLoad)
+      cfg%delta_load = 0.0_dp
+      call read_linear_load(fid, cfg, write_freq)
       close(fid)
 
-      call check_int(ninc,       20,     'linear_mixed: ninc',      nfail)
-      call check_int(maxiter,   100,     'linear_mixed: maxiter',   nfail)
-      call check_real(deltaTime, 2.5_dp, tol, 'linear_mixed: deltaTime', nfail)
-      call check_real(deltaTemp, 10.0_dp, tol, 'linear_mixed: deltaTemp', nfail)
+      call check_int(cfg%n_inc,       20,     'linear_mixed: n_inc',      nfail)
+      call check_int(cfg%max_iter,   100,     'linear_mixed: max_iter',   nfail)
+      call check_real(cfg%delta_time, 2.5_dp, tol, 'linear_mixed: delta_time', nfail)
+      call check_real(cfg%delta_temp, 10.0_dp, tol, 'linear_mixed: delta_temp', nfail)
       call check_int(write_freq,  4,     'linear_mixed: write_freq', nfail)
-      call check_int(ifstress(1), 1,     'linear_mixed: ifstress(1)', nfail)
-      call check_int(ifstress(2), 0,     'linear_mixed: ifstress(2)', nfail)
-      call check_real(deltaLoad(1), 50.0_dp, tol, 'linear_mixed: deltaLoad(1)', nfail)
-      call check_real(deltaLoad(2), 0.01_dp, tol, 'linear_mixed: deltaLoad(2)', nfail)
+      call check_int(cfg%ifstress(1), 1,     'linear_mixed: ifstress(1)', nfail)
+      call check_int(cfg%ifstress(2), 0,     'linear_mixed: ifstress(2)', nfail)
+      call check_real(cfg%delta_load(1), 50.0_dp, tol, 'linear_mixed: delta_load(1)', nfail)
+      call check_real(cfg%delta_load(2), 0.01_dp, tol, 'linear_mixed: delta_load(2)', nfail)
    end subroutine test_linear_load_mixed_ctrl
 
    ! ---------------------------------------------------------------------------
@@ -117,10 +114,8 @@ contains
    ! ---------------------------------------------------------------------------
 
    subroutine test_circulating_load()
-      integer  :: fid, ninc, maxiter, write_freq
-      integer  :: ifstress(6)
-      real(dp) :: deltaTime, deltaTemp, deltaLoad(6), deltaLoadCirc(6), phase(6)
-      character(10) :: keyword
+      integer             :: fid, write_freq
+      type(step_config_t) :: cfg
 
       open(newunit=fid, status='scratch')
       write(fid, '(a)') '100 200 5.0 T 0.0'
@@ -133,23 +128,22 @@ contains
       write(fid, '(a)') '0   0.0  0.0  0.0'
       rewind(fid)
 
-      call read_circulating_load(fid, ninc, maxiter, deltaTime, deltaTemp, write_freq, &
-                                 keyword, deltaLoad, ifstress, deltaLoadCirc, phase)
+      call read_circulating_load(fid, cfg, write_freq)
       close(fid)
 
-      call check_int(ninc,     100,    'circulating: ninc',    nfail)
-      call check_int(maxiter,  200,    'circulating: maxiter', nfail)
-      call check_real(deltaTime, 5.0_dp, tol, 'circulating: deltaTime', nfail)
-      if (trim(keyword) /= '*Roscoe') then
-         print *, 'FAIL  circulating: keyword expected "*Roscoe" got "', trim(keyword), '"'
+      call check_int(cfg%n_inc,     100,    'circulating: n_inc',    nfail)
+      call check_int(cfg%max_iter,  200,    'circulating: max_iter', nfail)
+      call check_real(cfg%delta_time, 5.0_dp, tol, 'circulating: delta_time', nfail)
+      if (trim(cfg%coord_sys) /= '*Roscoe') then
+         print *, 'FAIL  circulating: coord_sys expected "*Roscoe" got "', trim(cfg%coord_sys), '"'
          nfail = nfail + 1
       end if
-      call check_int(ifstress(1), 1,       'circulating: ifstress(1)', nfail)
-      call check_int(ifstress(2), 0,       'circulating: ifstress(2)', nfail)
-      call check_real(deltaLoadCirc(1), 10.0_dp, tol, 'circulating: amp(1)',   nfail)
-      call check_real(phase(1),          0.0_dp, tol, 'circulating: phase(1)', nfail)
-      call check_real(deltaLoad(1),       5.0_dp, tol, 'circulating: bias(1)',  nfail)
-      call check_real(deltaLoad(2),       0.0_dp, tol, 'circulating: bias(2)',  nfail)
+      call check_int(cfg%ifstress(1), 1,             'circulating: ifstress(1)', nfail)
+      call check_int(cfg%ifstress(2), 0,             'circulating: ifstress(2)', nfail)
+      call check_real(cfg%delta_load_circ(1), 10.0_dp, tol, 'circulating: amp(1)',   nfail)
+      call check_real(cfg%phase0(1),           0.0_dp, tol, 'circulating: phase(1)', nfail)
+      call check_real(cfg%delta_load(1),       5.0_dp, tol, 'circulating: bias(1)',  nfail)
+      call check_real(cfg%delta_load(2),       0.0_dp, tol, 'circulating: bias(2)',  nfail)
    end subroutine test_circulating_load
 
    ! ---------------------------------------------------------------------------
@@ -162,9 +156,8 @@ contains
    ! ---------------------------------------------------------------------------
 
    subroutine test_deformation_gradient_load()
-      integer  :: fid, ninc, maxiter, write_freq
-      real(dp) :: deltaTime, deltaTemp, deltaLoad(9)
-      character(40) :: keyword
+      integer             :: fid, write_freq
+      type(step_config_t) :: cfg
 
       open(newunit=fid, status='scratch')
       write(fid, '(a)') '5 10 0.5 T 0.0'
@@ -179,19 +172,19 @@ contains
       write(fid, '(a)') '0.0'   ! F32
       rewind(fid)
 
-      call read_deformation_gradient_load(fid, ninc, maxiter, deltaTime, deltaTemp, write_freq, keyword, deltaLoad)
+      call read_deformation_gradient_load(fid, cfg, write_freq)
       close(fid)
 
-      call check_int(ninc,    5,      'defgrad: ninc',    nfail)
-      call check_int(maxiter, 10,     'defgrad: maxiter', nfail)
-      call check_real(deltaTime, 0.5_dp, tol, 'defgrad: deltaTime', nfail)
-      if (trim(keyword) /= '*Cartesian') then
-         print *, 'FAIL  defgrad: keyword expected "*Cartesian" got "', trim(keyword), '"'
+      call check_int(cfg%n_inc,    5,      'defgrad: n_inc',    nfail)
+      call check_int(cfg%max_iter, 10,     'defgrad: max_iter', nfail)
+      call check_real(cfg%delta_time, 0.5_dp, tol, 'defgrad: delta_time', nfail)
+      if (trim(cfg%coord_sys) /= '*Cartesian') then
+         print *, 'FAIL  defgrad: coord_sys expected "*Cartesian" got "', trim(cfg%coord_sys), '"'
          nfail = nfail + 1
       end if
-      call check_real(deltaLoad(1), 1.1_dp, tol, 'defgrad: deltaLoad(1)', nfail)
-      call check_real(deltaLoad(2), 1.0_dp, tol, 'defgrad: deltaLoad(2)', nfail)
-      call check_real(deltaLoad(4), 0.0_dp, tol, 'defgrad: deltaLoad(4)', nfail)
+      call check_real(cfg%delta_load(1), 1.1_dp, tol, 'defgrad: delta_load(1)', nfail)
+      call check_real(cfg%delta_load(2), 1.0_dp, tol, 'defgrad: delta_load(2)', nfail)
+      call check_real(cfg%delta_load(4), 0.0_dp, tol, 'defgrad: delta_load(4)', nfail)
    end subroutine test_deformation_gradient_load
 
    ! ---------------------------------------------------------------------------
@@ -199,28 +192,27 @@ contains
    ! ---------------------------------------------------------------------------
 
    subroutine test_oedometric_load()
-      integer  :: fid, ninc, maxiter, write_freq
-      real(dp) :: deltaTime, deltaTemp, deltaLoad1
-      character(40) :: kw2, kw3
+      integer             :: fid, write_freq
+      type(step_config_t) :: cfg
 
       open(newunit=fid, status='scratch')
       write(fid, '(a)') '15 30 3.0 T 0.0'
       write(fid, '(a)') '0.05'
       rewind(fid)
 
-      call read_oedometric_load(fid, ninc, maxiter, deltaTime, deltaTemp, write_freq, kw2, kw3, deltaLoad1)
+      call read_oedometric_load(fid, cfg, write_freq)
       close(fid)
 
-      call check_int(ninc,    15,      'oedometric: ninc',    nfail)
-      call check_int(maxiter, 30,      'oedometric: maxiter', nfail)
-      call check_real(deltaTime,  3.0_dp, tol, 'oedometric: deltaTime',  nfail)
-      call check_real(deltaLoad1, 0.05_dp, tol, 'oedometric: deltaLoad1', nfail)
-      if (trim(kw2) /= '*LinearLoad') then
-         print *, 'FAIL  oedometric: kw2 expected "*LinearLoad" got "', trim(kw2), '"'
+      call check_int(cfg%n_inc,    15,      'oedometric: n_inc',    nfail)
+      call check_int(cfg%max_iter, 30,      'oedometric: max_iter', nfail)
+      call check_real(cfg%delta_time,     3.0_dp, tol, 'oedometric: delta_time',     nfail)
+      call check_real(cfg%delta_load(1), 0.05_dp, tol, 'oedometric: delta_load(1)', nfail)
+      if (trim(cfg%load_type) /= '*LinearLoad') then
+         print *, 'FAIL  oedometric: load_type expected "*LinearLoad" got "', trim(cfg%load_type), '"'
          nfail = nfail + 1
       end if
-      if (trim(kw3) /= '*Cartesian') then
-         print *, 'FAIL  oedometric: kw3 expected "*Cartesian" got "', trim(kw3), '"'
+      if (trim(cfg%coord_sys) /= '*Cartesian') then
+         print *, 'FAIL  oedometric: coord_sys expected "*Cartesian" got "', trim(cfg%coord_sys), '"'
          nfail = nfail + 1
       end if
    end subroutine test_oedometric_load
@@ -230,24 +222,23 @@ contains
    ! ---------------------------------------------------------------------------
 
    subroutine test_pure_creep_load()
-      integer  :: fid, ninc, maxiter, write_freq, ifstress(6)
-      real(dp) :: deltaTime, deltaTemp
-      character(40) :: kw2, kw3
+      integer             :: fid, write_freq
+      type(step_config_t) :: cfg
 
       open(newunit=fid, status='scratch')
       write(fid, '(a)') '10 20 1.0 T 0.0'
       rewind(fid)
 
-      call read_pure_creep_load(fid, ninc, maxiter, deltaTime, deltaTemp, write_freq, kw2, kw3, ifstress)
+      call read_pure_creep_load(fid, cfg, write_freq)
       close(fid)
 
-      call check_int(ninc,    10,  'pure_creep: ninc',    nfail)
-      if (any(ifstress /= 1)) then
-         print *, 'FAIL  pure_creep: ifstress should be all 1, got', ifstress
+      call check_int(cfg%n_inc, 10,  'pure_creep: n_inc', nfail)
+      if (any(cfg%ifstress /= 1)) then
+         print *, 'FAIL  pure_creep: ifstress should be all 1, got', cfg%ifstress
          nfail = nfail + 1
       end if
-      if (trim(kw2) /= '*LinearLoad') then
-         print *, 'FAIL  pure_creep: kw2 expected "*LinearLoad" got "', trim(kw2), '"'
+      if (trim(cfg%load_type) /= '*LinearLoad') then
+         print *, 'FAIL  pure_creep: load_type expected "*LinearLoad" got "', trim(cfg%load_type), '"'
          nfail = nfail + 1
       end if
    end subroutine test_pure_creep_load
@@ -257,24 +248,23 @@ contains
    ! ---------------------------------------------------------------------------
 
    subroutine test_undrained_creep()
-      integer  :: fid, ninc, maxiter, write_freq, ifstress(6)
-      real(dp) :: deltaTime, deltaTemp
-      character(40) :: kw2, kw3
+      integer             :: fid, write_freq
+      type(step_config_t) :: cfg
 
       open(newunit=fid, status='scratch')
       write(fid, '(a)') '10 20 1.0 T 0.0'
       rewind(fid)
 
-      call read_undrained_creep(fid, ninc, maxiter, deltaTime, deltaTemp, write_freq, kw2, kw3, ifstress)
+      call read_undrained_creep(fid, cfg, write_freq)
       close(fid)
 
-      call check_int(ifstress(1), 0,  'undrained_creep: ifstress(1) should be 0', nfail)
-      if (any(ifstress(2:6) /= 1)) then
-         print *, 'FAIL  undrained_creep: ifstress(2:6) should be all 1, got', ifstress(2:6)
+      call check_int(cfg%ifstress(1), 0,  'undrained_creep: ifstress(1) should be 0', nfail)
+      if (any(cfg%ifstress(2:6) /= 1)) then
+         print *, 'FAIL  undrained_creep: ifstress(2:6) should be all 1, got', cfg%ifstress(2:6)
          nfail = nfail + 1
       end if
-      if (trim(kw3) /= '*Roscoe') then
-         print *, 'FAIL  undrained_creep: kw3 expected "*Roscoe" got "', trim(kw3), '"'
+      if (trim(cfg%coord_sys) /= '*Roscoe') then
+         print *, 'FAIL  undrained_creep: coord_sys expected "*Roscoe" got "', trim(cfg%coord_sys), '"'
          nfail = nfail + 1
       end if
    end subroutine test_undrained_creep

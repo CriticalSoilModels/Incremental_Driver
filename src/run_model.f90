@@ -67,8 +67,7 @@ contains
 
       character(len=40):: keywords(10), outputfilename,&
          parametersfilename,&
-         initialconditionsfilename, testfilename,&
-         exitCond, ImportFileName
+         initialconditionsfilename, testfilename
 
       character(len=260) ::  inputline(6), aLine, heading
       character(len=520) :: hugeLine
@@ -78,27 +77,22 @@ contains
 
       logical :: verbose
       ! logical :: EXITNOW, existCond,okSplit                             ! AN 2016 ! WaveHello: ExitNow (bool) conflicts with the function
-      logical :: existCond,okSplit
-      real(dp), dimension(6,6)  :: cMt , cMe
-      real(dp), dimension(6)  :: mb, mbinc
+      logical :: okSplit
+      real(dp), dimension(6) :: mb   ! constraint RHS for *ObeyRestrictions (not in config)
 
-
-      integer :: mImport, columnsInFile(7),every,ievery                 ! AN 2016
-      real(dp) ::  importFactor(7)
-      real(dp),dimension(20) :: oldState, newState,dState
+      integer :: every, ievery
+      real(dp),dimension(20) :: oldState, newState, dState
       real(dp), allocatable :: props(:), statev(:), r_statev(:)
 
       real(dp),dimension(3,3):: Qb33,eps33,T33
 
-      integer:: ifstress(ntens), maxiter, ninc,kiter, ikeyword, &
+      integer :: maxiter, kiter, ikeyword, &
          iRepetition, nRepetitions, kStep,iStep,nSteps,ntens_in
 
       real(dp):: r_stress(ntens),a_dstress(ntens),u_dstress(ntens),&
          stress_Rosc(ntens),r_stress_Rosc(ntens),           &
-         ddstress(ntens), c_dstran(ntens) ,                 &
-         deltaLoadCirc(6),phase0(6),deltaLoad(9),           &
-         dstran_Cart(6), ddsdde_bar(6,6), deltaTime,        &
-         deltaTemp
+         ddstress(ntens), c_dstran(ntens),                  &
+         dstran_Cart(6), ddsdde_bar(6,6)
 
       real(dp),dimension(1:6,1:6)::M,MmT      !  currrent $\cM$ and $\cM^{-T}$  for a given iStep
 
@@ -162,120 +156,86 @@ contains
                   ' TEMP = ', TEMP, &
                   ' TIME = ', TIME(1)
 
-               if(iRepetition > 1) then  ! while repeating: restore the step config saved on the first iteration
-                  config        = ofStep(iStep)
-                  ninc          = config%n_inc
-                  maxiter       = config%max_iter
-                  ifstress      = config%ifstress
-                  deltaLoadCirc = config%delta_load_circ
-                  phase0        = config%phase0
-                  deltaLoad     = config%delta_load
-                  dfgrd0        = config%dfgrd0
-                  dfgrd1        = config%dfgrd1
-                  deltaTime     = config%delta_time
-                  keywords(2)   = config%load_type
-                  keywords(3)   = config%coord_sys
-                  cMe           = config%cMe
-                  cMt           = config%cMt
-                  mbinc         = config%mbinc
-                  deltaTemp     = config%delta_temp
-                  exitCond      = config%exit_cond
-                  existCond     = config%has_exit_cond
-                  ImportFileName = config%import_file
-                  mImport       = config%n_import
-                  columnsInFile = config%columns_in_file
-                  importFactor  = config%import_factor
+               if(iRepetition > 1) then  ! restore step config saved on the first iteration
+                  config      = ofStep(iStep)
+                  keywords(2) = config%load_type
+                  keywords(3) = config%coord_sys
+                  maxiter     = config%max_iter
                endif
 
-               if(keywords(1) == '*Repetition') read(1,'(a)') keywords(2)          ! = *LinearLoad  or *CirculatingLoad or *ObeyRestrictions...
+               if(keywords(1) == '*Repetition') read(test_file_id,'(a)') keywords(2) ! = *LinearLoad  or *CirculatingLoad or *ObeyRestrictions...
                ! otherwise keywords(2) = keywords(1)
 
-               call splitaLine(keywords(2),'?', keywords(2), exitCond, existCond)  ! AN 2016 look for exit condition in keywords(2)
+               call splitaLine(keywords(2),'?', keywords(2), config%exit_cond, config%has_exit_cond)
 
                keywords(2)  = trim(keywords(2)) ! Trim the test name
 
-               ifstress(:)=0                                                      ! default strain control
-               deltaLoadCirc(:)=0.0d0                                             ! default zero step increment
-               phase0(:)=0.0d0                                                    ! default no phase shift
-               deltaLoad(:) = 0.0d0
-               deltaTemp = 0.0d0    !  AN 2023  temperature increase per step
-               dfgrd0 = delta
-               dfgrd1 = delta
+               ! Defaults — read routines only set the fields they use.
+               config%load_type       = keywords(2)
+               config%ifstress        = 0
+               config%delta_load      = 0.0_dp
+               config%delta_load_circ = 0.0_dp
+               config%phase0          = 0.0_dp
+               config%dfgrd0          = delta
+               config%dfgrd1          = delta
+               config%cMt             = 0.0_dp
+               config%cMe             = 0.0_dp
+               config%mbinc           = 0.0_dp
+               config%columns_in_file = 0
+               config%import_factor   = 1.0_dp
+               config%n_import        = 0
 
                if(keywords(2) == '*DeformationGradient') then
+                  call read_deformation_gradient_load(test_file_id, config, every)
 
-                  call read_deformation_gradient_load(test_file_id, ninc, maxiter, deltaTime, &
-                     deltaTemp, every, keywords(3), deltaLoad)
+               else if (keywords(2) == '*CirculatingLoad') then
+                  call read_circulating_load(test_file_id, config, every)
 
-
-               else if (keywords(2)=='*CirculatingLoad') then
-                  call read_circulating_load(test_file_id, ninc, maxiter, deltaTime, &
-                     deltaTemp, every, keywords(3), deltaLoad, ifstress, deltaLoadCirc, &
-                     phase0)
-
-               else if(keywords(2)=='*LinearLoad') then
-                  call read_linear_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, every, &
-                     keywords(3), ifstress, deltaLoad)
+               else if(keywords(2) == '*LinearLoad') then
+                  call read_linear_load(test_file_id, config, every)
 
                else if(keywords(2)(1:11) == '*ImportFile') then
-                  !! TODO: Check that this isn't broken. The load file id thing is funky.
-                  !! Not sure if the id is required in the main program. I don't think it's required?
-                  !! This is probably broken
-                  call read_file_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords, ifstress, columnsInFile, importFactor, &
-                     ImportFileName, align)
+                  call read_file_load(test_file_id, config, every, align)
 
                else if(keywords(2) == '*OedometricE1') then
-                  call read_oedometric_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(2), keywords(3), deltaload(1))
-                  keywords(3) = trim(keywords(3))
+                  call read_oedometric_load(test_file_id, config, every)
+
                else if(keywords(2) == '*OedometricS1') then
-                  call read_oedometric_S1_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(2), keywords(3), deltaLoad(1), ifstress(1))
+                  call read_oedometric_S1_load(test_file_id, config, every)
 
                else if(keywords(2) == '*TriaxialE1') then
-                  call read_triaxial_e1_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(2), keywords(3), deltaLoad(1), ifstress(2:3))
+                  call read_triaxial_e1_load(test_file_id, config, every)
 
                else if(keywords(2) == '*TriaxialS1') then
-                  call read_triaxial_s1_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(2), keywords(3), deltaLoad(1), ifstress(1:3))
+                  call read_triaxial_s1_load(test_file_id, config, every)
 
                else if(keywords(2) == '*TriaxialUEq') then
-                  call read_triaxial_ueq_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(2), keywords(3), deltaLoad(2))
+                  call read_triaxial_ueq_load(test_file_id, config, every)
 
                else if(keywords(2) == '*TriaxialUq') then
-                  call read_triaxial_uq_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(2), keywords(3), deltaLoad(2), ifstress(2))
+                  call read_triaxial_uq_load(test_file_id, config, every)
 
                else if(keywords(2) == '*PureRelaxation') then
-                  call read_pure_relaxation_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(2), keywords(3))
+                  call read_pure_relaxation_load(test_file_id, config, every)
 
                else if(keywords(2) == '*PureCreep') then
-                  call read_pure_creep_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(2), keywords(3), ifstress)
+                  call read_pure_creep_load(test_file_id, config, every)
 
                else if(keywords(2) == '*UndrainedCreep') then
-                  call read_undrained_creep(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(2), keywords(3), ifstress)
+                  call read_undrained_creep(test_file_id, config, every)
 
-               else if(keywords(2) == '*ObeyRestrictions') then  ! ======================= *ObeyRestrictions ==================================
-                  call read_obey_restrictions_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(3), ifstress, cMt, cMe, mb, mbinc)
+               else if(keywords(2) == '*ObeyRestrictions') then
+                  call read_obey_restrictions_load(test_file_id, config, every, mb)
 
                else if(keywords(2) == '*PerturbationsS') then
-                  call read_perturbations_S_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(3), deltaLoad(1), ifstress)
+                  call read_perturbations_S_load(test_file_id, config, every)
 
                else if(keywords(2) == '*PerturbationsE') then
-                  call read_perturbations_E_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(3), deltaLoad(1), ifstress)
+                  call read_perturbations_E_load(test_file_id, config, every)
 
-               else if(keywords(2) == '*RandomWalk') then                         ! AN 2019
-                  call read_random_walk_load(test_file_id, ninc, maxiter, deltaTime, deltaTemp, &
-                     every, keywords(3), deltaLoad, ifstress)
+               else if(keywords(2) == '*RandomWalk') then
+                  call read_random_walk_load(test_file_id, config, every)
+
                else if(keywords(2) == '*End') then
                   print *, '*End encountered in test.inp'
                   return
@@ -284,39 +244,19 @@ contains
                   error stop 'stopped by unknown keyword(2) in test.inp'
                end if
 
-               keywords(3) = trim(keywords(3))
-
-               ! Pack local vars into config (once per step, before the increment loop)
-               config%n_inc           = ninc
-               config%max_iter        = maxiter
-               config%ifstress        = ifstress
-               config%delta_load_circ = deltaLoadCirc
-               config%phase0          = phase0
-               config%delta_load      = deltaLoad
-               config%dfgrd0          = dfgrd0
-               config%dfgrd1          = dfgrd1
-               config%delta_time      = deltaTime
-               config%load_type       = keywords(2)
-               config%coord_sys       = keywords(3)
-               config%cMe             = cMe
-               config%cMt             = cMt
-               config%mbinc           = mbinc
-               config%delta_temp      = deltaTemp
-               config%exit_cond       = exitCond
-               config%has_exit_cond   = existCond
-               config%import_file     = ImportFileName
-               config%n_import        = mImport
-               config%columns_in_file = columnsInFile
-               config%import_factor   = importFactor
+               ! Sync keywords(3) from config (read routines set coord_sys)
+               keywords(3) = trim(config%coord_sys)
 
                if(keywords(1) == '*Repetition' .and. iRepetition == 1) then
-                  ofStep(iStep) = config   !  remember the step config for subsequent repetitions
+                  ofStep(iStep) = config
                endif
+
+               maxiter = config%max_iter
 
                ! If the choosen load is stress controlled make sure at least iter_lower_limit number of iterations is done
                ! A guess at the correct strain has to be made and the stress has to be converged to
-               if(any(ifstress==1)) maxiter = max(maxiter,iter_lower_limit)
-               if(all(ifstress==0) .and. keywords(2) .ne. '*ObeyRestrictions') maxiter = 1  ! no iterations are necessary
+               if(any(config%ifstress==1)) maxiter = max(maxiter,iter_lower_limit)
+               if(all(config%ifstress==0) .and. keywords(2) .ne. '*ObeyRestrictions') maxiter = 1  ! no iterations are necessary
 
                ! start the current step with zero-load call of umat() just to get the stiffness
                dstran(:)=0
@@ -343,7 +283,7 @@ contains
                end select
 
                if(keywords(2) == '*ImportFile' ) then                           ! AN 2016
-                  import_file_id = open(ImportFileName)
+                  import_file_id = open(config%import_file)
                   do                                                             ! AN 2016
                      read(import_file_id,'(a)',iostat = iostat) hugeLine;         ! AN 2016
 
@@ -352,35 +292,34 @@ contains
                      if(index('1234567890+-.',aChar) > 0) exit                  ! preceding non-numeric lines in ImportFile will be ignored
                   enddo
 
-                  read(hugeLine,*,iostat=iostat) oldState(1:mImport)
+                  read(hugeLine,*,iostat=iostat) oldState(1:config%n_import)
                   if (iostat /= 0) error stop 'Error reading ImportFile in the first numeric record '
                endif
 
                ievery=1
-               do_kinc: do kinc=1,ninc
+               do_kinc: do kinc=1,config%n_inc
 
                   if(keywords(2) == '*ImportFile') then                             ! AN 2016
-                     deltaTemp = 0                                                  ! AN 2023 temperat
                      dTemp = 0                                                      ! AN 2023 temperat
-                     read(import_file_id,*,iostat=iostat)  newState(1:mImport)                         ! AN 2016
+                     read(import_file_id,*,iostat=iostat)  newState(1:config%n_import)                 ! AN 2016
                      if(iostat > 0) then                                                  ! AN 2016
-                        write(*,*) 'error Import file',ImportFileName, 'line=', kinc+1
+                        write(*,*) 'error Import file', config%import_file, 'line=', kinc+1
                         error stop                                                            ! AN 2016
                      else                                                                                                         ! AN 2016
                         close(import_file_id)                                       ! AN 2016
-                        write(*,*) 'finished reading file', ImportFileName          ! AN 2016
+                        write(*,*) 'finished reading file', config%import_file      ! AN 2016
                         exit                                                        ! AN 2016
                      endif                                                           ! AN 2016
 
                      dState = newState(:) -  oldState(:)                             ! AN 2016
                      do i=1,6                                                        ! AN 2016
-                        if  (columnsInFile(i) == 0) cycle                               ! AN 2016
-                        if (ifstress(i)==1  )  ddstress(i)= dState(columnsInFile(i))* ImportFactor(i)
-                        if (ifstress(i)==0)    dstran(i)  = dState(columnsInFile(i))* ImportFactor(i)
+                        if  (config%columns_in_file(i) == 0) cycle                      ! AN 2016
+                        if (config%ifstress(i)==1) ddstress(i)= dState(config%columns_in_file(i))* config%import_factor(i)
+                        if (config%ifstress(i)==0) dstran(i)  = dState(config%columns_in_file(i))* config%import_factor(i)
                      enddo
 
-                     if(columnsInFile(7)/= 0) deltaTime= dState(columnsInFile(7)) * ImportFactor(i)   ! AN 2016
-                     dtime = deltaTime                                             ! AN 2016
+                     if(config%columns_in_file(7)/= 0) config%delta_time= dState(config%columns_in_file(7)) * config%import_factor(7)   ! AN 2016
+                     dtime = config%delta_time                                     ! AN 2016
                      oldState(:) = newState(:)                                    ! AN 2016
                   endif                                                             ! AN 2016
 
@@ -397,9 +336,9 @@ contains
                      c_dstran(:) = 0
 
                      if(keywords(2)== '*ObeyRestrictions'  ) then  ! ======================= ObeyRestrictions =========
-                        ddsdde_bar = matmul(cMt,ddsdde) + cMe
-                        u_dstress = - matmul(cMt,a_dstress)-matmul(cMe,dstran)+ mbinc
-                        call  USOLVER(ddsdde_bar,c_dstran,u_dstress,ifstress,ntens)
+                        ddsdde_bar = matmul(config%cMt,ddsdde) + config%cMe
+                        u_dstress = - matmul(config%cMt,a_dstress)-matmul(config%cMe,dstran)+ config%mbinc
+                        call  USOLVER(ddsdde_bar,c_dstran,u_dstress,config%ifstress,ntens)
                         dstran = dstran + c_dstran
 
                         call  UMAT(stress,statev,ddsdde,sse,spd,scd,                       &
@@ -419,11 +358,11 @@ contains
 
                      if(keywords(2) /= '*ObeyRestrictions'  ) then   ! ======================= disObeyRestrictions ==========
                         u_dstress = 0.0d0
-                        where (ifstress == 1)  u_dstress =ddstress -a_dstress           ! undesired Roscoe stress
+                        where (config%ifstress == 1)  u_dstress =ddstress -a_dstress           ! undesired Roscoe stress
                         ddsdde_bar = matmul(matmul(M,ddsdde),transpose(M))              ! Roscoe-Roscoe stiffness
 
-                        call  USOLVER(ddsdde_bar,c_dstran,u_dstress,ifstress,ntens)     ! get Rosc. correction  c\_dstran() caused by undesired Rosc. dstress
-                        where (ifstress == 1) dstran = dstran + c_dstran                ! corrected Rosc. dstran where stress-controlled
+                        call  USOLVER(ddsdde_bar,c_dstran,u_dstress,config%ifstress,ntens)     ! get Rosc. correction  c\_dstran() caused by undesired Rosc. dstress
+                        where (config%ifstress == 1) dstran = dstran + c_dstran                ! corrected Rosc. dstran where stress-controlled
                         dstran_Cart = matmul( transpose(M),dstran )                     ! transsform Rosc. to Cartesian dstran
                         call  UMAT(stress,statev,ddsdde,sse,spd,scd,                    &
                            rpl,ddsddt,drplde,drpldt,                                    &
@@ -435,7 +374,7 @@ contains
                            statev(:)=r_statev(:)                                        ! 1) forget the changes of state done in umat
                            stress_Rosc = matmul(M,stress)                               !    output from umat transform to Roscoe ?
                            r_stress_Rosc = matmul(M,r_stress)
-                           where (ifstress ==1) a_dstress = stress_Rosc - r_stress_Rosc ! 2) compute the new approximation of stress
+                           where (config%ifstress ==1) a_dstress = stress_Rosc - r_stress_Rosc ! 2) compute the new approximation of stress
                            stress(:)=r_stress(:)                                        ! 3) forget the changes of stress done in umat
                         else
                            stran(:)=stran(:)+dstran_Cart(:)                              !  accept  the updated state and stress (Cartesian)
@@ -485,15 +424,15 @@ contains
                   time(2)=time(2)+dtime     !  total time at the beginning of the next increment
                   Temp = Temp + dTemp       !  AN 2023 total temperature at the beginning of the increment
 
-                  if( existCond ) then                                             ! AN 2016 only if a condition exists
-                     if(  EXITNOW(exitCond, stress,stran,statev,nstatv)  ) exit   ! AN 2016 depending on  exitCond go to next step
+                  if( config%has_exit_cond ) then                                  ! AN 2016 only if a condition exists
+                     if(  EXITNOW(config%exit_cond, stress,stran,statev,nstatv)  ) exit   ! AN 2016 depending on  exitCond go to next step
                   endif
                   ! AN 2016
                   ievery = ievery+1; if(ievery > every) ievery = 1 ! Increment ievery and reset it to 1 if applicable
 
                   !*****************************************************
                   if(keywords(2) == '*ImportFile' ) then
-                     call  tryAlignStress(align, kinc, newState, mImport,stress,ntens)
+                     call  tryAlignStress(align, kinc, newState, config%n_import,stress,ntens)
                   endif
                   !***********************************************
 
