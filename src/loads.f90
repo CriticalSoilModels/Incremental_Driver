@@ -4,8 +4,8 @@ module indr_loads
    use indr_linalg, only: inv33
    use indr_alignment, only: readAlignment
    use indr_types, only: StressAlignment
-   use indr_constants, only: voight_len, max_fname_len, max_lname_len
-   use indr_step_params, only: descriptionOfStep
+   use indr_constants, only: voigt_len, max_fname_len, max_lname_len
+   use indr_step_params, only: step_config_t
 
    implicit none
    ! private
@@ -102,7 +102,7 @@ contains
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
       character(10), intent(out) :: keywords(3)
-      integer, intent(out) :: ifstress(voight_len)
+      integer, intent(out) :: ifstress(voigt_len)
       integer, intent(out) :: columnsInFile(7)
       real(dp), intent(out) :: importFactor(7)
       type(StressAlignment) :: align
@@ -304,7 +304,7 @@ contains
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
       character(max_lname_len), intent(inout) :: keyword2, keyword3
-      integer, intent(out) :: ifstress(voight_len)
+      integer, intent(out) :: ifstress(voigt_len)
 
       keyword2 = adjustl(trim('*LinearLoad'))
       keyword3 =adjustl(trim('*Cartesian'))
@@ -321,7 +321,7 @@ contains
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
       character(max_lname_len), intent(inout) :: keyword2, keyword3
-      integer, intent(out) :: ifstress(voight_len)
+      integer, intent(out) :: ifstress(voigt_len)
 
       keyword2 = adjustl(trim('*LinearLoad'))
       keyword3 = adjustl(trim('*Roscoe'))
@@ -340,7 +340,7 @@ contains
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
       character(max_lname_len), intent(out) :: keyword3
-      integer, intent(out) :: ifstress(voight_len)
+      integer, intent(out) :: ifstress(voigt_len)
       real(dp), intent(out) :: cMt(6,6)
       real(dp), intent(out) :: cMe(6,6)
       real(dp), intent(out) :: mb(6), mbinc(6)
@@ -373,7 +373,7 @@ contains
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
       character(max_lname_len), intent(out) :: keyword3
-      integer, intent(out) :: ifstress(voight_len)
+      integer, intent(out) :: ifstress(voigt_len)
       real(dp), intent(out) :: deltaLoad1
 
       !Local
@@ -405,7 +405,7 @@ contains
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
       character(max_lname_len), intent(out) :: keyword3
-      integer, intent(out) :: ifstress(voight_len)
+      integer, intent(out) :: ifstress(voigt_len)
       real(dp), intent(out) :: deltaLoad1
 
       !Local
@@ -435,8 +435,8 @@ contains
       real(dp), intent(out) :: deltaTemp
       integer, intent(out) :: write_freq
       character(max_lname_len), intent(out) :: keyword3
-      integer, intent(out) :: ifstress(voight_len)
-      real(dp), intent(out) :: deltaLoad(voight_len)
+      integer, intent(out) :: ifstress(voigt_len)
+      real(dp), intent(out) :: deltaLoad(voigt_len)
 
       !Local
       integer :: i

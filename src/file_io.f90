@@ -3,7 +3,7 @@
 module indr_file_io
    use stdlib_kinds, only: dp
    use stdlib_io, only: open, get_line
-   use indr_constants, only: max_fname_len, max_mater_len, voight_len, max_head_len
+   use indr_constants, only: max_fname_len, max_mater_len, voigt_len, max_head_len
 
    implicit none(type, external)
    private
@@ -52,9 +52,9 @@ contains
       !! Fortran does an implicit save when subroutine variable names are set at
       !! declearation. making that explicit with the
       character(len=max_fname_len), intent(in) :: file_name
-      real(dp), intent(out) :: stress(voight_len)
+      real(dp), intent(out) :: stress(voigt_len)
       real(dp), intent(out) :: time(2)
-      real(dp), intent(out) :: strain(voight_len)
+      real(dp), intent(out) :: strain(voigt_len)
 
       real(dp), allocatable, intent(out) :: state_vars(:)
       real(dp), allocatable, intent(out) :: init_state_vars(:)
@@ -170,8 +170,8 @@ contains
    subroutine get_output_headers(time_header, strain_header, stress_header, state_var_header)
       !! Writes output file headers and stores them in the *_header arrays
       character(len=10), intent(out) :: time_header(2)
-      character(len=10), intent(out) :: strain_header(voight_len)
-      character(len=10), intent(out) :: stress_header(voight_len)
+      character(len=10), intent(out) :: strain_header(voigt_len)
+      character(len=10), intent(out) :: stress_header(voigt_len)
       character(len=15), intent(out) :: state_var_header(:)
       
       !Local
@@ -183,7 +183,7 @@ contains
          write(time_header(i),'(a,i0,a)')  'time(',i, ')'
       enddo
 
-      do i=1,voight_len
+      do i=1,voigt_len
          write( strain_header(i), '(a,i0,a)' )   'stran(',i, ')'
          write( stress_header(i), '(a,i0,a)' )  'stress(',i, ')'
       enddo
@@ -197,8 +197,8 @@ contains
       integer, intent(in) :: output_file_id
       real(dp), intent(in) :: time(2)
       real(dp), intent(in) :: dtime
-      real(dp), intent(in) :: strain(voight_len)
-      real(dp), intent(in) :: stress(voight_len)
+      real(dp), intent(in) :: strain(voigt_len)
+      real(dp), intent(in) :: stress(voigt_len)
       real(dp), intent(in) :: state_vars(:)
 
       write(output_file_id,'(500(g17.10,3h    ))') time+(/dtime,dtime/), strain, stress, state_vars

@@ -1,6 +1,6 @@
 module indr_types
     use stdlib_kinds, only: dp
-    use indr_constants, only: voight_len
+    use indr_constants, only: voigt_len
    implicit none
 !    private
 !    public:: 

@@ -6,7 +6,7 @@ module indr_run_model
    use indr_solver, only: USOLVER
 
    use indr_types   , only: StressAlignment
-   use indr_step_params, only: descriptionOfStep, get_repetition_params, set_repetition_params
+   use indr_step_params, only: step_config_t, get_repetition_params, set_repetition_params
    use indr_matrices, only: MRoscI, MRoscImt, MRendul, MRendulmT, MRosc, MRoscmT, MCart, MCartmT
 
    use indr_command_line, only: set_inputs
@@ -103,7 +103,7 @@ contains
       real(dp),dimension(1:6,1:6)::M,MmT      !  currrent $\cM$ and $\cM^{-T}$  for a given iStep
 
       type(StressAlignment) :: align
-      type(descriptionOfStep) :: ofStep(30)            !  stores descriptions of up to 30 steps which are repeated
+      type(step_config_t) :: ofStep(30)            !  stores descriptions of up to 30 steps which are repeated
 
 
       ! [1]  Set the filenames and the verose seting

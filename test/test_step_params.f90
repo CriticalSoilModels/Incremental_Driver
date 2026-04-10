@@ -1,8 +1,8 @@
 program test_step_params
    ! Round-trip test: set_repetition_params -> get_repetition_params recovers all fields
    use stdlib_kinds, only: dp
-   use indr_step_params, only: descriptionOfStep, set_repetition_params, get_repetition_params
-   use indr_constants, only: max_fname_len, voight_len
+   use indr_step_params, only: step_config_t, set_repetition_params, get_repetition_params
+   use indr_constants, only: max_fname_len, voigt_len
    implicit none
 
    integer :: nfail = 0
@@ -20,10 +20,10 @@ program test_step_params
 contains
 
    subroutine test_roundtrip()
-      type(descriptionOfStep) :: step
+      type(step_config_t) :: step
 
       ! Input values
-      integer  :: ninc_in, maxiter_in, ifstress_in(voight_len)
+      integer  :: ninc_in, maxiter_in, ifstress_in(voigt_len)
       integer  :: mImport_in, columnsInFile_in(7)
       real(dp) :: deltaLoadCirc_in(6), phase0_in(6), deltaLoad_in(9)
       real(dp) :: dfgrd0_in(3,3), dfgrd1_in(3,3), deltaTime_in, deltaTemp_in
@@ -34,7 +34,7 @@ contains
       character(max_fname_len) :: ImportFileName_in
 
       ! Output values (recovered)
-      integer  :: ninc_out, maxiter_out, ifstress_out(voight_len)
+      integer  :: ninc_out, maxiter_out, ifstress_out(voigt_len)
       integer  :: mImport_out, columnsInFile_out(7)
       real(dp) :: deltaLoadCirc_out(6), phase0_out(6), deltaLoad_out(9)
       real(dp) :: dfgrd0_out(3,3), dfgrd1_out(3,3), deltaTime_out, deltaTemp_out
@@ -98,7 +98,7 @@ contains
       end if
 
       ! Check ifstress
-      do i = 1, voight_len
+      do i = 1, voigt_len
          if (ifstress_out(i) /= ifstress_in(i)) then
             print *, 'FAIL  test_roundtrip: ifstress(', i, ') expected', ifstress_in(i), 'got', ifstress_out(i)
             nfail = nfail + 1
@@ -115,7 +115,7 @@ contains
          nfail = nfail + 1
       end if
 
-      ! Check keyword2 and keyword3 (keyword1 is not stored in descriptionOfStep)
+      ! Check load_type and coord_sys (keyword1 is not stored in step_config_t)
       if (trim(keywords_out(2)) /= trim(keywords_in(2))) then
          print *, 'FAIL  test_roundtrip: keywords(2) expected "', trim(keywords_in(2)), &
                   '" got "', trim(keywords_out(2)), '"'
@@ -127,19 +127,19 @@ contains
          nfail = nfail + 1
       end if
 
-      ! Check exitCond and existCond
+      ! Check exit_cond and has_exit_cond
       if (trim(exitCond_out) /= trim(exitCond_in)) then
-         print *, 'FAIL  test_roundtrip: exitCond mismatch'
+         print *, 'FAIL  test_roundtrip: exit_cond mismatch'
          nfail = nfail + 1
       end if
       if (existCond_out .neqv. existCond_in) then
-         print *, 'FAIL  test_roundtrip: existCond expected', existCond_in, 'got', existCond_out
+         print *, 'FAIL  test_roundtrip: has_exit_cond expected', existCond_in, 'got', existCond_out
          nfail = nfail + 1
       end if
 
-      ! Check mImport
+      ! Check n_import
       if (mImport_out /= mImport_in) then
-         print *, 'FAIL  test_roundtrip: mImport expected', mImport_in, 'got', mImport_out
+         print *, 'FAIL  test_roundtrip: n_import expected', mImport_in, 'got', mImport_out
          nfail = nfail + 1
       end if
 
