@@ -5,7 +5,8 @@ module mod_inc_driver_funcs
    use stdlib_kinds, only: dp
    implicit none
    private
-   public :: splitaLine, ReadStepCommons, PARSER, get_increment, USOLVER, EXITNOW
+   public :: splitaLine, ReadStepCommons, PARSER, get_increment, USOLVER, EXITNOW, &
+             SINV, ROTSIG, SPRINC, SPRIND
 contains
 
 
