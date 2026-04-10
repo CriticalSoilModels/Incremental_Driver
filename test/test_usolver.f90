@@ -5,7 +5,7 @@ program test_usolver
    !   is(i) = 0  ->  u(i) is prescribed (strain-controlled)
    !   is(i) = 1  ->  rhs(i) is prescribed (stress-controlled)
    use stdlib_kinds, only: dp
-   use mod_inc_driver_funcs, only: USOLVER
+   use indr_solver, only: USOLVER
    implicit none
 
    integer :: nfail = 0
