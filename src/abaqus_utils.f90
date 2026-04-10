@@ -1,32 +1,73 @@
 !! Imitations of Abaqus utility routines for use by UMAT subroutines.
-!! Keep the original Abaqus names — UMATs call these directly.
+!! Original Abaqus names (ROTSIG, SINV, etc.) are preserved so that UMATs
+!! can call them without modification. Modern alternatives (calc_rot_sig,
+!! calc_rot_eps) are also exported for new code.
 module indr_abaqus_utils
    use stdlib_kinds, only: dp
    use indr_linalg, only: spectral_decomposition_of_symmetric
    implicit none
    private
-   public :: ROTSIG, SINV, SPRINC, SPRIND, XIT
+   public :: ROTSIG, SINV, SPRINC, SPRIND, XIT, &
+             calc_rot_sig, calc_rot_eps
 
 contains
 
-   ! Rotate a stress (LSTR=1) or strain (LSTR=0) vector by rotation matrix R.
+   ! Apply rotation R to a symmetric 3×3 tensor T: T' = R·T·Rᵀ
+   pure function rotate_tensor(T, R) result(T_rot)
+      implicit none
+      real(dp), intent(in) :: T(3,3), R(3,3)
+      real(dp) :: T_rot(3,3)
+      T_rot = matmul(matmul(R, T), transpose(R))
+   end function rotate_tensor
+
+   ! Rotate a stress Voigt vector S by rotation matrix R.
+   ! Stress mapping: no factor-of-2 on shear components.
+   pure function calc_rot_sig(S, R) result(S_rot)
+      implicit none
+      real(dp), intent(in) :: S(:), R(3,3)
+      real(dp) :: S_rot(size(S))
+      real(dp) :: a(6), T(3,3)
+      integer  :: ntens
+      ntens = size(S)
+      a = 0.0_dp
+      a(1:ntens) = S
+      T = reshape([a(1),a(4),a(5), a(4),a(2),a(6), a(5),a(6),a(3)], [3,3])
+      T = rotate_tensor(T, R)
+      a = [T(1,1),T(2,2),T(3,3), T(1,2),T(1,3),T(2,3)]
+      S_rot = a(1:ntens)
+   end function calc_rot_sig
+
+   ! Rotate a strain Voigt vector E by rotation matrix R.
+   ! Strain mapping: engineering shear (γ=2ε) is halved into tensor form,
+   ! then doubled back after rotation.
+   pure function calc_rot_eps(E, R) result(E_rot)
+      implicit none
+      real(dp), intent(in) :: E(:), R(3,3)
+      real(dp) :: E_rot(size(E))
+      real(dp) :: a(6), T(3,3)
+      integer  :: ntens
+      ntens = size(E)
+      a = 0.0_dp
+      a(1:ntens) = E
+      T = reshape([a(1),       a(4)/2.0_dp, a(5)/2.0_dp, &
+                   a(4)/2.0_dp, a(2),       a(6)/2.0_dp, &
+                   a(5)/2.0_dp, a(6)/2.0_dp, a(3)], [3,3])
+      T = rotate_tensor(T, R)
+      a = [T(1,1), T(2,2), T(3,3), &
+           2.0_dp*T(1,2), 2.0_dp*T(1,3), 2.0_dp*T(2,3)]
+      E_rot = a(1:ntens)
+   end function calc_rot_eps
+
+   ! Abaqus ROTSIG interface — thin wrapper around calc_rot_sig / calc_rot_eps.
+   ! LSTR=1: stress rotation.  LSTR=0: strain rotation.
    subroutine ROTSIG(S, R, SPRIME, LSTR, NDI, NSHR)
       implicit none
       integer,  intent(in)  :: LSTR, NDI, NSHR
       real(dp), intent(in)  :: R(3,3)
       real(dp), intent(in)  :: S(NDI+NSHR)
       real(dp), intent(out) :: SPRIME(NDI+NSHR)
-      real(dp) :: a(6), b(3,3)
-      integer  :: ntens
-      ntens = NDI + NSHR
-      a(:) = 0.0_dp
-      a(1:ntens) = S(:)
-      if (LSTR == 1) b = reshape([a(1),a(4),a(5),a(4),a(2),a(6),a(5),a(6),a(3)], [3,3])
-      if (LSTR == 0) b = reshape([a(1),a(4)/2,a(5)/2,a(4)/2,a(2),a(6)/2,a(5)/2,a(6)/2,a(3)], [3,3])
-      b = matmul(matmul(R, b), transpose(R))
-      if (LSTR == 1) a = [b(1,1),b(2,2),b(3,3),b(1,2),b(1,3),b(2,3)]
-      if (LSTR == 0) a = [b(1,1),b(2,2),b(3,3),2*b(1,2),2*b(1,3),2*b(2,3)]
-      SPRIME = a(1:ntens)
+      if (LSTR == 1) SPRIME = calc_rot_sig(S, R)
+      if (LSTR == 0) SPRIME = calc_rot_eps(S, R)
    end subroutine ROTSIG
 
    ! Return two stress invariants: mean stress p (SINV1) and deviatoric norm q (SINV2).
@@ -55,7 +96,7 @@ contains
       r(1:3) = S(1:3)
       if (LSTR == 1 .and. NSHR > 0) r(4:3+NSHR) = S(4:3+NSHR)
       if (LSTR == 2 .and. NSHR > 0) r(4:3+NSHR) = S(4:3+NSHR) / 2.0_dp
-      A = reshape([r(1),r(4),r(5),r(4),r(2),r(6),r(5),r(6),r(3)], [3,3])
+      A = reshape([r(1),r(4),r(5), r(4),r(2),r(6), r(5),r(6),r(3)], [3,3])
       call spectral_decomposition_of_symmetric(A, PS, AN, 3)
    end subroutine SPRINC
 
@@ -70,7 +111,7 @@ contains
       r(1:3) = S(1:3)
       if (LSTR == 1 .and. NSHR > 0) r(4:3+NSHR) = S(4:3+NSHR)
       if (LSTR == 2 .and. NSHR > 0) r(4:3+NSHR) = S(4:3+NSHR) / 2.0_dp
-      A = reshape([r(1),r(4),r(5),r(4),r(2),r(6),r(5),r(6),r(3)], [3,3])
+      A = reshape([r(1),r(4),r(5), r(4),r(2),r(6), r(5),r(6),r(3)], [3,3])
       call spectral_decomposition_of_symmetric(A, PS, AN, 3)
    end subroutine SPRIND
 
