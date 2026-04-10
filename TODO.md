@@ -12,3 +12,7 @@ The plan is to modernize this library so that it can more easily be integrated w
 * Update the code to a more modern standard
 * Check the math and add citations to references to justify the calculations
 * Look through the kayenta manual and make sure that it somewhat matches what is going on here.
+
+
+## Personal notes
+Let's split the rotsig into three functions. We need one function to do the mapping from voight to matrix notation for stress and strain and one function to do the rotation. Both the stress and strain function can call that. This wall all of the functions are pure and can be a function instead of a subroutine 
