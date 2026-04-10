@@ -3,33 +3,31 @@ module indr_linalg
    use stdlib_kinds, only: dp
    implicit none
    private
-   public :: inv33, spectral_decomposition_of_symmetric, &
-             app_jacobian_similarity, get_jacobian_rot
+   public :: inv33, spectral_decomposition_of_symmetric
 
 contains
 
    ! Inverts a 3x3 matrix using the analytic cofactor formula
-   function inv33(a)
+   pure function inv33(a) result(inv)
       implicit none
-      real(dp), dimension(3,3), intent(in) :: a
-      real(dp), dimension(3,3) :: inv33
-      real(dp), dimension(3,3) :: b
-      real(dp) :: det
+      real(dp), intent(in) :: a(3,3)
+      real(dp) :: inv(3,3)
+      real(dp) :: b(3,3), det
       det = - a(1,3)*a(2,2)*a(3,1) + a(1,2)*a(2,3)*a(3,1) &
-         + a(1,3)*a(2,1)*a(3,2) - a(1,1)*a(2,3)*a(3,2) &
-         - a(1,2)*a(2,1)*a(3,3) + a(1,1)*a(2,2)*a(3,3)
-      b = reshape( [-a(2,3)*a(3,2) + a(2,2)*a(3,3), a(1,3)*a(3,2) - a(1,2)*a(3,3), &
-         -a(1,3)*a(2,2) + a(1,2)*a(2,3), a(2,3)*a(3,1) - a(2,1)*a(3,3), &
-         -a(1,3)*a(3,1) + a(1,1)*a(3,3), a(1,3)*a(2,1) - a(1,1)*a(2,3), &
-         -a(2,2)*a(3,1) + a(2,1)*a(3,2), a(1,2)*a(3,1) - a(1,1)*a(3,2), &
-         -a(1,2)*a(2,1) + a(1,1)*a(2,2)], [3,3])
-      inv33 = transpose(b)/det
+            + a(1,3)*a(2,1)*a(3,2) - a(1,1)*a(2,3)*a(3,2) &
+            - a(1,2)*a(2,1)*a(3,3) + a(1,1)*a(2,2)*a(3,3)
+      b = reshape([-a(2,3)*a(3,2) + a(2,2)*a(3,3),  a(1,3)*a(3,2) - a(1,2)*a(3,3), &
+                  -a(1,3)*a(2,2) + a(1,2)*a(2,3),  a(2,3)*a(3,1) - a(2,1)*a(3,3), &
+                  -a(1,3)*a(3,1) + a(1,1)*a(3,3),  a(1,3)*a(2,1) - a(1,1)*a(2,3), &
+                  -a(2,2)*a(3,1) + a(2,1)*a(3,2),  a(1,2)*a(3,1) - a(1,1)*a(3,2), &
+                  -a(1,2)*a(2,1) + a(1,1)*a(2,2)], [3,3])
+      inv = transpose(b) / det
    end function inv33
 
    ! Jacobi iterative eigendecomposition of a real symmetric n×n matrix.
    ! Returns eigenvalues Lam(n) and eigenvectors G(n,n) (columns).
    ! Algorithm: Kielbasinski, p. 385–386.
-   subroutine spectral_decomposition_of_symmetric(A, Lam, G, n)
+   pure subroutine spectral_decomposition_of_symmetric(A, Lam, G, n)
       implicit none
       integer, intent(in)    :: n
       real(dp), intent(in)   :: A(n,n)
@@ -63,16 +61,12 @@ contains
 
    ! Apply one Jacobi (Givens) similarity transformation to symmetric matrix A.
    ! G_pq rotation with cosine c and sine s. Algorithm: Kielbasinski, p. 385.
-   subroutine app_jacobian_similarity(A, p, q, c, s, n)
+   pure subroutine app_jacobian_similarity(A, p, q, c, s, n)
       implicit none
       integer,  intent(in)    :: p, q, n
       real(dp), intent(in)    :: c, s
       real(dp), intent(inout) :: A(n,n)
       real(dp) :: prow(n), qrow(n), App, Apq, Aqq
-
-      if (p == q)       stop 'error: jacobian_similarity  p == q'
-      if (p < 1 .or. p > n) stop 'error: jacobian_similarity p out of range'
-      if (q < 1 .or. q > n) stop 'error: jacobian_similarity q out of range'
 
       prow = c*A(:,p) - s*A(:,q)
       qrow = s*A(:,p) + c*A(:,q)
@@ -88,7 +82,7 @@ contains
    ! Compute optimal Jacobi rotation parameters for iterative diagonalization.
    ! Returns pivot indices p, q and rotation cosine c, sine s.
    ! Algorithm: Kielbasinski, p. 385–386.
-   subroutine get_jacobian_rot(A, p, q, c, s, n)
+   pure subroutine get_jacobian_rot(A, p, q, c, s, n)
       implicit none
       integer,  intent(in)  :: n
       real(dp), intent(in)  :: A(n,n)
