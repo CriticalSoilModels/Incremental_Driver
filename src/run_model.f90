@@ -2,7 +2,8 @@ module indr_run_model
 
    use stdlib_kinds, only: dp
    use stdlib_io, only: open
-   use mod_inc_driver_funcs, only: splitaLine, ReadStepCommons, PARSER, get_increment,USOLVER, EXITNOW
+   use indr_parser, only: splitaLine, ReadStepCommons, PARSER, EXITNOW
+   use indr_solver, only: USOLVER
 
    use indr_types   , only: StressAlignment
    use indr_step_params, only: descriptionOfStep, get_repetition_params, set_repetition_params

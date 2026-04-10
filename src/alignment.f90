@@ -1,7 +1,7 @@
 module indr_alignment
     use stdlib_kinds, only: dp
     use indr_types, only: StressAlignment
-    use mod_inc_driver_funcs, only: splitaLine
+    use indr_parser, only: splitaLine
     ! private
     ! public :: 
    !! Does something with the alignment of stresses? I'm not sure

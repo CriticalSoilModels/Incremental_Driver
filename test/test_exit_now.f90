@@ -2,7 +2,7 @@
 ! EXITNOW evaluates a string condition (e.g. 's1 > 100.0') against the
 ! current stress, strain, and state variable arrays.
 program test_exit_now
-   use mod_inc_driver_funcs, only: EXITNOW
+   use indr_parser, only: EXITNOW
    implicit none
 
    integer, parameter :: nstatv = 10

@@ -4,7 +4,7 @@
 ! into a per-increment ddstress/dstran pair. For *LinearLoad the formula is
 ! trivially linear, so expected values are exact.
 program test_get_increment
-   use mod_inc_driver_funcs, only: get_increment
+   use indr_loads, only: get_increment
    implicit none
 
    character(len=40) :: keywords(10)

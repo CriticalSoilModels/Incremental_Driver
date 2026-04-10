@@ -1,6 +1,7 @@
 module indr_loads
    use stdlib_kinds, only: dp
-   use mod_inc_driver_funcs, only: ReadStepCommons, splitaLine, parser
+   use indr_parser, only: ReadStepCommons, splitaLine, PARSER
+   use indr_linalg, only: inv33
    use indr_alignment, only: readAlignment
    use indr_types, only: StressAlignment
    use indr_constants, only: voight_len, max_fname_len, max_lname_len
@@ -457,5 +458,90 @@ contains
    end subroutine read_random_walk_load
 
   
+
+   ! Converts a step description into per-increment ddstress/dstran.
+   ! Called once per increment (not once per step).
+   subroutine get_increment(keywords, time, deltaTime, ifstress, ninc, &
+      deltaLoadCirc, phase0, deltaLoad, deltaTemp, &
+      dtime, ddstress, dstran, dTemp, Qb33, &
+      dfgrd0, dfgrd1, drot)
+      implicit none
+      character(40),    intent(in)    :: keywords(10)
+      integer,          intent(in)    :: ifstress(6), ninc
+      real(dp),         intent(in)    :: time(2), deltaTime, deltaLoadCirc(6), phase0(6), deltaLoad(9), deltaTemp
+      real(dp),         intent(out)   :: dtime, ddstress(6), dstran(6), Qb33(3,3), dTemp
+      real(dp),         intent(inout) :: dfgrd0(3,3), dfgrd1(3,3), drot(3,3)
+
+      real(dp), parameter :: Pi = 3.1415926535897932385_dp
+      real(dp), parameter :: delta(3,3) = reshape([1,0,0,0,1,0,0,0,1], [3,3])
+      real(dp) :: Fb(3,3), Fbb(3,3), dFb(3,3), aux33(3,3), dLb(3,3), depsb(3,3), dOmegab(3,3)
+      real(dp) :: wd(6), w0(6), t, arandom
+      integer  :: i
+
+      dtime    = deltaTime / ninc
+      dTemp    = deltaTemp / ninc
+      dstran   = 0.0_dp
+      ddstress = 0.0_dp
+      Qb33     = delta
+      drot     = delta
+      dfgrd0   = delta
+      dfgrd1   = delta
+
+      if (keywords(2) == '*LinearLoad') then
+         do i = 1, 6
+            if (ifstress(i) == 1) ddstress(i) = deltaLoad(i) / ninc
+            if (ifstress(i) == 0) dstran(i)   = deltaLoad(i) / ninc
+         end do
+      end if
+
+      if (keywords(2) == '*DeformationGradient') then
+         Fb = reshape([deltaLoad(1), deltaLoad(5), deltaLoad(7), &
+                       deltaLoad(4), deltaLoad(2), deltaLoad(9), &
+                       deltaLoad(6), deltaLoad(8), deltaLoad(3)], [3,3])
+         Fbb    = delta + (Fb - delta) * (time(1) / deltaTime)
+         dfgrd0 = Fbb
+         dFb    = (Fb - delta) / ninc
+         aux33  = Fbb + dFb / 2.0_dp
+         dfgrd1 = Fbb + dFb
+         aux33  = inv33(aux33)
+         dLb    = matmul(dFb, aux33)
+         depsb  = 0.5_dp * (dLb + transpose(dLb))
+         dstran = [depsb(1,1), depsb(2,2), depsb(3,3), &
+                   2.0_dp*depsb(1,2), 2.0_dp*depsb(1,3), 2.0_dp*depsb(2,3)]
+         dOmegab = 0.5_dp * (dLb - transpose(dLb))
+         aux33   = inv33(delta - 0.5_dp*dOmegab)
+         Qb33    = matmul(aux33, delta + 0.5_dp*dOmegab)
+         drot    = Qb33
+      end if
+
+      if (keywords(2) == '*CirculatingLoad') then
+         wd = 2.0_dp * Pi / deltaTime
+         w0 = phase0
+         t  = time(1) + dtime / 2.0_dp
+         do i = 1, 6
+            if (ifstress(i) == 1) ddstress(i) = dtime*deltaLoadCirc(i)*wd(i)*cos(wd(i)*t + w0(i)) + deltaLoad(i)/ninc
+            if (ifstress(i) == 0) dstran(i)   = dtime*deltaLoadCirc(i)*wd(i)*cos(wd(i)*t + w0(i)) + deltaLoad(i)/ninc
+         end do
+      end if
+
+      if (keywords(2) == '*PerturbationsS') then
+         ddstress(1) = deltaLoad(1) * cos(time(1) * 2.0_dp * Pi / deltaTime)
+         ddstress(2) = deltaLoad(1) * sin(time(1) * 2.0_dp * Pi / deltaTime)
+      end if
+
+      if (keywords(2) == '*PerturbationsE') then
+         dstran(1) = deltaLoad(1) * cos(time(1) * 2.0_dp * Pi / deltaTime)
+         dstran(2) = deltaLoad(1) * sin(time(1) * 2.0_dp * Pi / deltaTime)
+      end if
+
+      if (keywords(2) == '*RandomWalk') then
+         call random_seed()
+         do i = 1, 6
+            call random_number(arandom)
+            if (ifstress(i) == 1) ddstress(i) = 2.0_dp*(arandom - 0.5_dp)*deltaLoad(i)
+            if (ifstress(i) == 0) dstran(i)   = 2.0_dp*(arandom - 0.5_dp)*deltaLoad(i)
+         end do
+      end if
+   end subroutine get_increment
 
 end module indr_loads
