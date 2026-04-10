@@ -2,7 +2,7 @@
 ! Each test is independent; n_fail accumulates failures.
 ! Exit code 1 on any failure so fpm test reports FAILED.
 program test_split_line
-   use mod_inc_driver_funcs, only: splitaLine
+   use indr_parser, only: splitaLine
    implicit none
 
    character(len=40) :: aline, left, right
