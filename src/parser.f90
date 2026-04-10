@@ -72,12 +72,16 @@ contains
       integer  :: i, igt, ilt, iis, imin, iplus, iminus, Nsummands, itimes
       character(len=40)  :: inp, rhs, summand(mSummands), aux
       real(dp) :: factor(mSummands), fac, x, y
+      logical  :: syntax_error
       real(dp), parameter :: sq3  = 1.7320508075689_dp, &
                              sq23 = 0.81649658092773_dp
 
       res = .false.
       igt = index(cond, '>');  ilt = index(cond, '<');  iis = max(igt, ilt)
-      if (iis == 0) goto 555
+      if (iis == 0) then
+         write(*,*) 'inp syntax error: ', cond, ' exit condition ignored'
+         return
+      end if
       inp = adjustl(cond(:iis));  rhs = trim(adjustl(cond(iis+1:)))
 
       factor(1) = 1
@@ -105,6 +109,7 @@ contains
       Nsummands = i
 
       x = 0.0_dp
+      syntax_error = .false.
       do i = 1, Nsummands
          aux    = adjustl(summand(i))
          itimes = index(aux, '*')
@@ -145,17 +150,21 @@ contains
           case ('eq');  x = x - 2.0_dp*(stran(1) - stran(3))/3.0_dp
           case ('eP');  x = x - factor(i)*(stran(1)+stran(2)+stran(3))/sq3
           case ('eQ');  x = x - factor(i)*sq23*(stran(1) - stran(3))
-          case DEFAULT; goto 555
+          case DEFAULT
+            syntax_error = .true.
          end select
+         if (syntax_error) exit
       end do
+
+      if (syntax_error) then
+         write(*,*) 'inp syntax error: ', cond, ' exit condition ignored'
+         return
+      end if
 
       read(rhs, *) y
       igt = index(cond, '>');  ilt = index(cond, '<')
       if (igt /= 0) res = (x > y)
       if (ilt /= 0) res = (x < y)
-      return
-555   write(*,*) 'inp syntax error: ', cond, ' exit condition ignored'
-      res = .false.
    end function EXITNOW
 
 !------------------------------------------------------------------------------------------
