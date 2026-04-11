@@ -6,7 +6,7 @@ module indr_run_model
    use indr_solver, only: USOLVER
 
    use indr_types   , only: StressAlignment
-   use indr_step_params, only: step_config_t
+   use indr_step_params, only: step_config_t, umat_interface
    use indr_matrices, only: MRoscI, MRoscImt, MRendul, MRendulmT, MRosc, MRoscmT, MCart, MCartmT
 
    use indr_command_line, only: set_inputs
@@ -19,28 +19,6 @@ module indr_run_model
    use indr_value_checks, only: set_zero_with_tol, check_stress_inc_size
 
    implicit none(type, external)
-
-   ABSTRACT INTERFACE
-
-      subroutine umat_interface(stress,statev,ddsdde,sse,spd,scd, &
-         rpl,ddsddt,drplde,drpldt, &
-         stran,dstran,time,dtime,temp,dtemp,predef,dpred,cmname, &
-         ndi,nshr,ntens,nstatev,props,nprops,coords,drot,pnewdt, &
-         celent,dfgrd0,dfgrd1,noel,npt,layer,kspt,kstep,kinc)
-
-         implicit none
-
-         character*80 cmname
-         integer :: ntens,nstatev,nprops,ndi,nshr,noel, &
-            npt,layer,kspt,kstep,kinc
-         real(8) :: sse,spd,scd,rpl,drpldt,dtime,temp,dtemp, &
-            pnewdt,celent
-         real(8) :: stress(ntens),statev(nstatev), &
-            ddsdde(ntens,ntens),ddsddt(ntens),drplde(ntens), &
-            stran(ntens),dstran(ntens),time(2),predef(1),dpred(1), &
-            props(nprops),coords(3),drot(3,3),dfgrd0(3,3),dfgrd1(3,3)
-      end subroutine umat_interface
-   END INTERFACE
 
 contains
    subroutine run_model(UMAT)

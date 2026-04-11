@@ -4,7 +4,7 @@ module indr_step_params
 
    implicit none
    private
-   public :: step_config_t, material_state_t
+   public :: step_config_t, material_state_t, umat_interface
 
    type step_config_t
       integer  :: n_inc, max_iter, ifstress(voigt_len), columns_in_file(7), n_import
@@ -29,5 +29,24 @@ module indr_step_params
       real(dp)              :: F_start(3,3)  !! deformation gradient, start of increment [-]
       real(dp)              :: F_end(3,3)    !! deformation gradient, end of increment [-]
    end type material_state_t
+
+   abstract interface
+      subroutine umat_interface(stress, statev, ddsdde, sse, spd, scd, &
+            rpl, ddsddt, drplde, drpldt, &
+            stran, dstran, time, dtime, temp, dtemp, predef, dpred, cmname, &
+            ndi, nshr, ntens, nstatev, props, nprops, coords, drot, pnewdt, &
+            celent, dfgrd0, dfgrd1, noel, npt, layer, kspt, kstep, kinc)
+         implicit none
+         character*80 cmname
+         integer :: ntens, nstatev, nprops, ndi, nshr, noel, &
+            npt, layer, kspt, kstep, kinc
+         real(8) :: sse, spd, scd, rpl, drpldt, dtime, temp, dtemp, &
+            pnewdt, celent
+         real(8) :: stress(ntens), statev(nstatev), &
+            ddsdde(ntens,ntens), ddsddt(ntens), drplde(ntens), &
+            stran(ntens), dstran(ntens), time(2), predef(1), dpred(1), &
+            props(nprops), coords(3), drot(3,3), dfgrd0(3,3), dfgrd1(3,3)
+      end subroutine umat_interface
+   end interface
 
 end module indr_step_params
