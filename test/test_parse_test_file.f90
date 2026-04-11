@@ -1,9 +1,9 @@
 program test_parse_test_file
-   !! Tests for parse_test_file in indr_test_parser.
+   !! Tests for parse_test_file in indr_step_parser.
    !! Each test writes a minimal test.inp to a scratch file, parses it,
    !! and checks the returned step records against expected values.
    use stdlib_kinds,       only: dp
-   use indr_test_parser,   only: step_record_t, parse_test_file
+   use indr_step_parser,   only: step_record_t, parse_test_file
    use indr_types,         only: StressAlignment
    implicit none
 

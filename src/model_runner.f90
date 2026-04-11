@@ -2,7 +2,7 @@
 !! Concrete implementations (umat_runner_t, mcss_runner_t) extend this type.
 module indr_model_runner
    use stdlib_kinds, only: dp
-   use indr_step_params, only: material_state_t
+   use indr_types, only: material_state_t
    implicit none(type, external)
    private
    public :: model_runner_t
@@ -16,7 +16,7 @@ module indr_model_runner
    end type model_runner_t
 
    abstract interface
-      subroutine model_run_i(this, state, deps, ddsig_by_ddeps, ndi, nshr, ntens)
+      subroutine model_run_i(this, state, deps, ddsig_by_ddeps, ndi, nshr, ntens, dtemp)
          !! Integrate the model one increment.
          !!
          !! On entry:  state%sig, state%eps, state%statev, state%time, state%dt,
@@ -28,12 +28,14 @@ module indr_model_runner
          !!   In practice this is the elastic stiffness (possibly stress-state
          !!   dependent), not the full consistent elastoplastic tangent.
          !!   USOLVER compensates via iteration.
+         !! dtemp  -- temperature increment for this call [°C]
          import model_runner_t, material_state_t, dp
          class(model_runner_t),  intent(inout) :: this
          type(material_state_t), intent(inout) :: state
          real(dp), intent(in)  :: deps(ntens)
          real(dp), intent(out) :: ddsig_by_ddeps(ntens, ntens)
          integer,  intent(in)  :: ndi, nshr, ntens
+         real(dp), intent(in)  :: dtemp
       end subroutine model_run_i
    end interface
 

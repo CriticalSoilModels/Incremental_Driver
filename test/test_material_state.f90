@@ -3,7 +3,7 @@ program test_material_state
    !! that allocatable statev round-trips correctly, and that struct
    !! assignment deep-copies the allocatable component.
    use stdlib_kinds, only: dp
-   use indr_step_params, only: material_state_t
+   use indr_types, only: material_state_t
    implicit none
 
    integer :: nfail = 0

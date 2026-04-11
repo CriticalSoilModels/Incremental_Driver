@@ -2,7 +2,9 @@ module indr_maps
     use stdlib_kinds, only: dp
 
    implicit none
-   
+   private
+   public :: map2T, map2stress, map2D, map2stran
+
 contains
     !   contained in program\_that\_calls\_umat writes a 6x6 matrix for debugging with Mma
    subroutine write66(a)

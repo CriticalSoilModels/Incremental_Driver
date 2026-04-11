@@ -3,13 +3,21 @@ module indr_loads
    use indr_parser, only: ReadStepCommons, splitaLine, PARSER
    use indr_linalg, only: inv33
    use indr_alignment, only: readAlignment
-   use indr_types, only: StressAlignment
+   use indr_types, only: StressAlignment, step_config_t, STRAIN_CTRL, STRESS_CTRL
    use indr_constants, only: voigt_len, max_fname_len, max_lname_len
-   use indr_step_params, only: step_config_t
 
    implicit none
-   ! private
-   ! public ::
+   private
+   public :: get_increment,                                                     &
+             read_linear_load, read_circulating_load,                           &
+             read_deformation_gradient_load, read_file_load,                    &
+             read_oedometric_load, read_oedometric_S1_load,                     &
+             read_triaxial_e1_load, read_triaxial_s1_load,                      &
+             read_triaxial_ueq_load, read_triaxial_uq_load,                     &
+             read_pure_relaxation_load, read_pure_creep_load,                   &
+             read_undrained_creep, read_obey_restrictions_load,                 &
+             read_perturbations_S_load, read_perturbations_E_load,              &
+             read_random_walk_load
 contains
 
    subroutine read_deformation_gradient_load(file_id, config, write_freq)
@@ -218,8 +226,8 @@ contains
 
       config%load_type   = '*LinearLoad'
       config%coord_sys   = '*Roscoe'
-      config%ifstress(1) = 0
-      config%ifstress(2:6) = 1
+      config%ifstress(1)   = STRAIN_CTRL
+      config%ifstress(2:6) = STRESS_CTRL
       call ReadStepCommons(file_id, config%n_inc, config%max_iter, &
                            config%delta_time, config%delta_temp, write_freq)
    end subroutine read_undrained_creep
@@ -337,8 +345,8 @@ contains
 
       if (load_type == '*LinearLoad') then
          do i = 1, 6
-            if (ifstress(i) == 1) ddstress(i) = delta_load(i) / n_inc
-            if (ifstress(i) == 0) dstran(i)   = delta_load(i) / n_inc
+            if (ifstress(i) == STRESS_CTRL) ddstress(i) = delta_load(i) / n_inc
+            if (ifstress(i) == STRAIN_CTRL) dstran(i)   = delta_load(i) / n_inc
          end do
       end if
 
@@ -367,8 +375,8 @@ contains
          w0 = phase0
          t  = time(1) + dtime / 2.0_dp
          do i = 1, 6
-            if (ifstress(i) == 1) ddstress(i) = dtime*delta_load_circ(i)*wd(i)*cos(wd(i)*t + w0(i)) + delta_load(i)/n_inc
-            if (ifstress(i) == 0) dstran(i)   = dtime*delta_load_circ(i)*wd(i)*cos(wd(i)*t + w0(i)) + delta_load(i)/n_inc
+            if (ifstress(i) == STRESS_CTRL) ddstress(i) = dtime*delta_load_circ(i)*wd(i)*cos(wd(i)*t + w0(i)) + delta_load(i)/n_inc
+            if (ifstress(i) == STRAIN_CTRL) dstran(i)   = dtime*delta_load_circ(i)*wd(i)*cos(wd(i)*t + w0(i)) + delta_load(i)/n_inc
          end do
       end if
 
@@ -386,8 +394,8 @@ contains
          call random_seed()
          do i = 1, 6
             call random_number(arandom)
-            if (ifstress(i) == 1) ddstress(i) = 2.0_dp*(arandom - 0.5_dp)*delta_load(i)
-            if (ifstress(i) == 0) dstran(i)   = 2.0_dp*(arandom - 0.5_dp)*delta_load(i)
+            if (ifstress(i) == STRESS_CTRL) ddstress(i) = 2.0_dp*(arandom - 0.5_dp)*delta_load(i)
+            if (ifstress(i) == STRAIN_CTRL) dstran(i)   = 2.0_dp*(arandom - 0.5_dp)*delta_load(i)
          end do
       end if
 

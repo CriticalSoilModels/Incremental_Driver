@@ -5,17 +5,18 @@ module indr_run_model
    use stdlib_kinds, only: dp
    use stdlib_io,    only: open
 
-   use indr_step_params,  only: material_state_t, umat_interface
+   use indr_types,        only: material_state_t, umat_interface, StressAlignment
    use indr_umat_runner,  only: umat_runner_t
    use indr_step_runner,  only: integrate_step
-   use indr_test_parser,  only: step_record_t, parse_test_file
-   use indr_types,        only: StressAlignment
+   use indr_step_parser,  only: step_record_t, parse_test_file
 
    use indr_command_line, only: set_inputs
    use indr_file_io,      only: read_parameter_file, read_init_conditions_file, &
       write_line_output_data, write_output_file_header, write_step_output
 
    implicit none(type, external)
+   private
+   public :: run_model
 
 contains
 

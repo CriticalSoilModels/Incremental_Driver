@@ -3,10 +3,10 @@ program test_umat_runner
    !! Uses the linear elastic UMAT from indr_umat and verifies that
    !! run_umat produces the same stress increment as calling the UMAT directly.
    use stdlib_kinds, only: dp
-   use indr_step_params, only: material_state_t
+   use indr_types, only: material_state_t
    use indr_model_runner, only: model_runner_t
    use indr_umat_runner, only: umat_runner_t
-   use indr_umat, only: UMAT
+   use indr_umat_test, only: UMAT
    implicit none
 
    integer :: nfail = 0
@@ -53,7 +53,7 @@ contains
       state%F_end   = identity33
       allocate(state%statev(1), source=0.0_dp)
 
-      call runner%run(state, deps_ref, ddsig_by_ddeps, ndi, nshr, ntens)
+      call runner%run(state, deps_ref, ddsig_by_ddeps, ndi, nshr, ntens, 0.0_dp)
 
       ! For isotropic linear elastic: sig(1) = (lam + 2*mu) * deps(1)
       ! lam = nu*E / ((1+nu)*(1-2*nu)),  mu = E / (2*(1+nu))
@@ -104,7 +104,7 @@ contains
       state%F_end   = identity33
       allocate(state%statev(1), source=0.0_dp)
 
-      call runner%run(state, deps_zero, ddsig_by_ddeps, ndi, nshr, ntens)
+      call runner%run(state, deps_zero, ddsig_by_ddeps, ndi, nshr, ntens, 0.0_dp)
 
       lam = nu * E / ((1.0_dp + nu) * (1.0_dp - 2.0_dp*nu))
       mu  = E / (2.0_dp * (1.0_dp + nu))

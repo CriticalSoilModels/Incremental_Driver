@@ -3,6 +3,8 @@ module indr_value_checks
    use stdlib_optval, only: optval
 
    implicit none
+   private
+   public :: set_zero_with_tol, check_stress_inc_size
 
 contains
    function set_zero_with_tol(arr, ext_tol) result(arr_zero)

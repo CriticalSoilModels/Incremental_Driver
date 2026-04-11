@@ -4,12 +4,12 @@ module indr_file_io
    use stdlib_kinds, only: dp
    use stdlib_io, only: open, get_line
    use indr_constants, only: max_fname_len, max_mater_len, voigt_len, max_head_len
-   use indr_step_params, only: material_state_t
+   use indr_types, only: material_state_t, step_config_t
 
    implicit none(type, external)
    private
    public :: read_parameter_file, read_init_conditions_file, set_output_name_from_test_file, &
-      write_line_output_data, write_output_file_header, write_step_output
+      write_line_output_data, write_output_file_header, write_step_output, load_import_data
 
 contains
    subroutine read_parameter_file(file_name, num_props, prop_vals, &
@@ -205,6 +205,66 @@ contains
       write(output_file_id,'(500(g17.10,3h    ))') time+(/dtime,dtime/), strain, stress, state_vars
 
    end subroutine write_line_output_data
+
+   subroutine load_import_data(config)
+      !! Read all rows of an *ImportFile data file into config%import_data.
+      !!
+      !! Opens config%import_file, skips non-numeric header lines, then reads
+      !! every subsequent row into a growing buffer. On return:
+      !!   config%import_data(i, :) = row i of the file (1-based)
+      !!   config%n_import          = number of columns read per row
+      !!
+      !! Row 1 is the initial state; row kinc+1 is the new state at increment kinc.
+      type(step_config_t), intent(inout) :: config
+
+      integer, parameter :: INIT_CAP = 256
+
+      integer  :: fid, iostat, n_rows, n_cols, cap
+      character(len=520) :: line
+      character(len=1)   :: achar_
+      real(dp), allocatable :: buf(:,:), tmp(:,:), row(:)
+
+      n_cols = maxval(config%columns_in_file)
+      config%n_import = n_cols
+
+      fid = open(config%import_file)
+
+      ! Skip non-numeric header lines; 'line' ends holding first data row
+      do
+         read(fid, '(a)', iostat=iostat) line
+         if (iostat /= 0) error stop 'load_import_data: error reading file headers'
+         line   = adjustl(line)
+         achar_ = line(1:1)
+         if (index('1234567890+-.', achar_) > 0) exit
+      end do
+
+      ! Grow buffer as rows are read
+      cap = INIT_CAP
+      allocate(buf(cap, n_cols), row(n_cols))
+      n_rows = 0
+
+      do
+         read(line, *, iostat=iostat) row
+         if (iostat /= 0) exit          ! blank or malformed line — stop
+         n_rows = n_rows + 1
+         if (n_rows > cap) then
+            cap = cap * 2
+            allocate(tmp(cap, n_cols))
+            tmp(1:n_rows-1, :) = buf(1:n_rows-1, :)
+            call move_alloc(tmp, buf)
+         end if
+         buf(n_rows, :) = row
+         read(fid, '(a)', iostat=iostat) line   ! next line; EOF exits loop
+         if (iostat /= 0) exit
+         line = adjustl(line)
+      end do
+
+      close(fid)
+
+      allocate(config%import_data(n_rows, n_cols))
+      config%import_data = buf(1:n_rows, :)
+
+   end subroutine load_import_data
 
    subroutine write_step_output(file_id, results, write_freq)
       !! Write increment snapshots to an open output file.

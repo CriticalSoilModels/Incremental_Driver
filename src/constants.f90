@@ -3,8 +3,9 @@ module indr_constants
     use stdlib_kinds, only: dp
     use stdlib_constants, only: pi_dp
     implicit none
-    ! private
-    ! public :: max_fname_len, max_mater_len, voigt_len
+    private
+    public :: max_fname_len, max_mater_len, max_lname_len, voigt_len, &
+              max_head_len, iter_lower_limit
 
     integer, parameter :: max_fname_len = 40 !! Max file name length
     integer, parameter :: max_mater_len = 80 !! Max material name length

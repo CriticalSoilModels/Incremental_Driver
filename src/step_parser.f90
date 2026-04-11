@@ -1,11 +1,10 @@
-module indr_test_parser
+module indr_step_parser
    !! Reads an entire test.inp file and returns all step records.
    !!
    !! Phase 6: supports all load types except *Repetition.
    !! Phase 7: adds *Repetition block expansion.
    use stdlib_kinds,      only: dp
-   use indr_step_params,  only: step_config_t
-   use indr_types,        only: StressAlignment
+   use indr_types,        only: step_config_t, StressAlignment, STRAIN_CTRL
    use indr_loads,        only: read_linear_load, read_circulating_load,         &
                                 read_deformation_gradient_load, read_file_load,  &
                                 read_oedometric_load, read_oedometric_S1_load,   &
@@ -17,12 +16,13 @@ module indr_test_parser
                                 read_random_walk_load
    use indr_parser,       only: splitaLine
    use indr_alignment,    only: readAlignment
+   use indr_file_io,      only: load_import_data
 
    implicit none
    private
    public :: step_record_t, parse_test_file
 
-   integer, parameter :: MAX_BUF = 1000  !! Maximum number of steps that can be buffered
+   integer, parameter :: INIT_CAP = 64  !! Initial step buffer capacity; doubles on overflow
 
    type step_record_t
       !! Combines a fully-populated step configuration with the output write frequency.
@@ -41,7 +41,7 @@ contains
       integer,                          intent(out) :: n_steps
       type(StressAlignment),            intent(out) :: align
 
-      type(step_record_t) :: buf(MAX_BUF)
+      type(step_record_t), allocatable :: buf(:), rep_buf(:)
       character(len=260)  :: line
       character(len=40)   :: keyword, exit_cond, kw40
       logical             :: has_exit
@@ -51,12 +51,12 @@ contains
       real(dp), parameter :: delta(3,3) = reshape([1,0,0,0,1,0,0,0,1], [3,3])
 
       ! *Repetition workspace
-      type(step_record_t) :: rep_buf(MAX_BUF)
-      integer             :: n_rep_steps, n_reps, i_rep, i_step
+      integer :: n_rep_steps, n_reps, i_rep, i_step
 
       ! Initialise outputs
       align%active = .false.
       n_steps = 0
+      allocate(buf(INIT_CAP))
 
       ! Read heading (first line)
       read(file_id, '(a)') line
@@ -163,6 +163,7 @@ contains
                call read_file_load(file_id, config, write_freq, align)
                ! read_file_load has align intent(in) so we call readAlignment directly
                call readAlignment(align, config%import_file)
+               call load_import_data(config)
                call store(buf, n_steps, config, write_freq)
             end if
             ! Unknown keywords are silently ignored
@@ -188,7 +189,7 @@ contains
       real(dp),            intent(in)  :: delta(3,3)
 
       config%load_type       = keyword
-      config%ifstress        = 0
+      config%ifstress        = STRAIN_CTRL
       config%delta_load      = 0.0_dp
       config%delta_load_circ = 0.0_dp
       config%phase0          = 0.0_dp
@@ -211,14 +212,20 @@ contains
    end subroutine set_defaults
 
    subroutine store(buf, n, config, write_freq)
-      !! Append one step_record_t to the buffer; stops on overflow.
-      type(step_record_t), intent(inout) :: buf(MAX_BUF)
+      !! Append one step_record_t to the buffer, doubling capacity when full.
+      type(step_record_t), allocatable, intent(inout) :: buf(:)
       integer,             intent(inout) :: n
       type(step_config_t), intent(in)    :: config
       integer,             intent(in)    :: write_freq
 
+      type(step_record_t), allocatable :: tmp(:)
+
       n = n + 1
-      if (n > MAX_BUF) error stop 'parse_test_file: step buffer overflow (> 1000 steps)'
+      if (n > size(buf)) then
+         allocate(tmp(size(buf) * 2))
+         tmp(1:n-1) = buf(1:n-1)
+         call move_alloc(tmp, buf)
+      end if
       buf(n)%config     = config
       buf(n)%write_freq = write_freq
    end subroutine store
@@ -229,9 +236,9 @@ contains
       integer,               intent(in)    :: file_id
       type(StressAlignment), intent(inout) :: align
       real(dp),              intent(in)    :: delta(3,3)
-      type(step_record_t),   intent(out)   :: rep_buf(MAX_BUF)
-      integer,               intent(out)   :: n_rep_steps
-      integer,               intent(out)   :: n_reps
+      type(step_record_t), allocatable, intent(out) :: rep_buf(:)
+      integer,                          intent(out) :: n_rep_steps
+      integer,                          intent(out) :: n_reps
 
       character(len=260)  :: line
       character(len=40)   :: keyword, exit_cond, kw40
@@ -245,6 +252,7 @@ contains
 
       ! Read: nSteps nRepetitions
       read(file_id, *) n_rep_steps, n_reps
+      allocate(rep_buf(n_rep_steps))
 
       ! Read exactly n_rep_steps step blocks
       do i = 1, n_rep_steps
@@ -302,6 +310,7 @@ contains
             if (keyword(1:11) == '*ImportFile') then
                call read_file_load(file_id, config, write_freq, align)
                call readAlignment(align, config%import_file)
+               call load_import_data(config)
             else
                error stop 'read_repetition_block: unknown keyword in *Repetition block'
             end if
@@ -312,4 +321,4 @@ contains
       end do
    end subroutine read_repetition_block
 
-end module indr_test_parser
+end module indr_step_parser

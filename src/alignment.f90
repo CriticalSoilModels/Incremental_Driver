@@ -2,10 +2,9 @@ module indr_alignment
     use stdlib_kinds, only: dp
     use indr_types, only: StressAlignment
     use indr_parser, only: splitaLine
-    ! private
-    ! public :: 
-   !! Does something with the alignment of stresses? I'm not sure
    implicit none
+   private
+   public :: readAlignment, tryAlignStress
 
 contains
    !   contained in  program\_that\_calls\_umat  reads a file with instructions for stress alignment

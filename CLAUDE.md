@@ -344,6 +344,20 @@ if (res < 1.0e-8) return
 if (res < CONV_TOL) return
 ```
 
+This applies especially to physical quantities and domain values — any literal whose
+meaning is not obvious from context must be given a named parameter with a unit comment:
+
+```fortran
+! Bad — what does 0.01 mean? Strain? Stress? Tolerance?
+config%delta_load(1) = 0.01_dp
+expected = (lam + 2.0_dp*mu) * 0.01_dp
+
+! Good — intent and units are clear
+real(dp), parameter :: TOTAL_EPS1 = 0.01_dp  !! total axial strain applied over the step [-]
+config%delta_load(1) = TOTAL_EPS1
+expected = (lam + 2.0_dp*mu) * TOTAL_EPS1
+```
+
 ### Avoid Deep Nesting
 
 Maximum 3-4 levels. Use early `cycle` and `return`.

@@ -3,11 +3,11 @@ program test_integrate_step
    !! with no file I/O. Constructs config + state entirely in memory,
    !! wires up the elastic umat_runner_t, and checks results.
    use stdlib_kinds, only: dp
-   use indr_step_params,  only: step_config_t, material_state_t
+   use indr_types,  only: step_config_t, material_state_t
    use indr_model_runner, only: model_runner_t
    use indr_umat_runner,  only: umat_runner_t
    use indr_step_runner,  only: integrate_step
-   use indr_umat,         only: UMAT
+   use indr_umat_test,    only: UMAT
    implicit none
 
    integer :: nfail = 0

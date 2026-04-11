@@ -7,7 +7,7 @@ program test_read_loads
                          read_deformation_gradient_load,           &
                          read_oedometric_load, read_pure_creep_load, &
                          read_undrained_creep
-   use indr_step_params, only: step_config_t
+   use indr_types, only: step_config_t
    implicit none
 
    integer :: nfail = 0

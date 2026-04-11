@@ -2,7 +2,7 @@ program test_step_params
    ! Tests for step_config_t: verify fields are readable/writable and struct
    ! assignment copies all data correctly.
    use stdlib_kinds, only: dp
-   use indr_step_params, only: step_config_t
+   use indr_types, only: step_config_t
    use indr_constants, only: voigt_len
    implicit none
 

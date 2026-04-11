@@ -1,7 +1,7 @@
 !! Concrete model runner that wraps an Abaqus UMAT procedure.
 module indr_umat_runner
    use stdlib_kinds, only: dp
-   use indr_step_params, only: material_state_t, umat_interface
+   use indr_types, only: material_state_t, umat_interface
    use indr_model_runner, only: model_runner_t
    implicit none(type, external)
    private
@@ -19,7 +19,7 @@ module indr_umat_runner
 
 contains
 
-   subroutine run_umat(this, state, deps, ddsig_by_ddeps, ndi, nshr, ntens)
+   subroutine run_umat(this, state, deps, ddsig_by_ddeps, ndi, nshr, ntens, dtemp)
       !! Unpack state into the UMAT argument list, call this%proc, and pack
       !! the outputs (sig, statev, ddsig_by_ddeps) back into state.
       !!
@@ -31,6 +31,7 @@ contains
       real(dp), intent(in)  :: deps(ntens)
       real(dp), intent(out) :: ddsig_by_ddeps(ntens, ntens)
       integer,  intent(in)  :: ndi, nshr, ntens
+      real(dp), intent(in)  :: dtemp
 
       ! UMAT scratch outputs — not needed by the driver
       real(dp) :: sse, spd, scd, rpl, drpldt, pnewdt
@@ -58,7 +59,7 @@ contains
       call this%proc( &
          state%sig, state%statev, ddsig_by_ddeps, sse, spd, scd,           &
          rpl, ddsddt, drplde, drpldt,                                       &
-         state%eps, deps, state%time, state%dt, state%temp, 0.0_dp,        &
+         state%eps, deps, state%time, state%dt, state%temp, dtemp,          &
          predef, dpred, this%cmname,                                        &
          ndi, nshr, ntens, this%nstatv, this%props, nprops,                 &
          coords, drot, pnewdt,                                              &

@@ -5,7 +5,7 @@
 ! trivially linear, so expected values are exact.
 program test_get_increment
    use indr_loads, only: get_increment
-   use indr_step_params, only: step_config_t
+   use indr_types, only: step_config_t
    implicit none
 
    type(step_config_t) :: cfg

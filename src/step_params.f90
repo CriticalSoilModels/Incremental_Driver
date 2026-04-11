@@ -1,10 +1,15 @@
-module indr_step_params
+module indr_types
+   !! Core data types for the incremental driver.
    use stdlib_kinds, only: dp
    use indr_constants, only: max_fname_len, voigt_len
 
    implicit none
    private
-   public :: step_config_t, material_state_t, umat_interface
+   public :: step_config_t, material_state_t, umat_interface, StressAlignment, &
+             STRAIN_CTRL, STRESS_CTRL
+
+   integer, parameter :: STRAIN_CTRL = 0  !! ifstress flag: direction is strain-controlled [-]
+   integer, parameter :: STRESS_CTRL = 1  !! ifstress flag: direction is stress-controlled [-]
 
    type step_config_t
       integer  :: n_inc, max_iter, ifstress(voigt_len), columns_in_file(7), n_import
@@ -15,6 +20,12 @@ module indr_step_params
       real(dp), dimension(1:6,1:6) :: cMt, cMe
       real(dp), dimension(1:6)     :: mbinc
       logical :: has_exit_cond
+      real(dp), allocatable :: import_data(:,:)
+         !! Pre-loaded rows from the *ImportFile data file.
+         !! Shape: (n_rows, n_import) where n_rows = total rows in file
+         !! and n_import = maxval(columns_in_file).
+         !! Row 1 is the initial state; row kinc+1 is the new state at increment kinc.
+         !! Unallocated for all non-ImportFile load types.
    end type step_config_t
 
    type material_state_t
@@ -29,6 +40,16 @@ module indr_step_params
       real(dp)              :: F_start(3,3)  !! deformation gradient, start of increment [-]
       real(dp)              :: F_end(3,3)    !! deformation gradient, end of increment [-]
    end type material_state_t
+
+   type StressAlignment
+      !! Controls stress re-alignment at specified increments during *ImportFile steps.
+      logical               :: active
+      character(len=40)     :: ImportFileName
+      integer               :: kblank, nrec, kReversal, ncol
+      integer, dimension(100) :: Reversal
+      integer, dimension(6)   :: isig
+      real(dp), dimension(6)  :: sigFac
+   end type StressAlignment
 
    abstract interface
       subroutine umat_interface(stress, statev, ddsdde, sse, spd, scd, &
@@ -49,4 +70,4 @@ module indr_step_params
       end subroutine umat_interface
    end interface
 
-end module indr_step_params
+end module indr_types

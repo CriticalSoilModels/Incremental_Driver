@@ -5,10 +5,8 @@
 !! not output writing, and is handled inside the do_kinc loop.)
 module indr_step_runner
    use stdlib_kinds, only: dp
-   use stdlib_io,    only: open
-   use indr_step_params,   only: step_config_t, material_state_t
+   use indr_types,         only: step_config_t, material_state_t, StressAlignment, STRAIN_CTRL, STRESS_CTRL
    use indr_model_runner,  only: model_runner_t
-   use indr_types,         only: StressAlignment
    use indr_loads,         only: get_increment
    use indr_solver,        only: USOLVER
    use indr_parser,        only: EXITNOW
@@ -67,10 +65,7 @@ contains
       real(dp) :: dt, dtemp
 
       ! *ImportFile state
-      integer  :: import_file_id, iostat
-      character(len=1)   :: aChar
-      character(len=520) :: hugeLine
-      real(dp) :: oldState(20), newState(20), dState(20)
+      real(dp) :: dState(20)
 
       ! Results buffer — pre-allocated to n_inc, trimmed after the loop
       type(material_state_t), allocatable :: results_buf(:)
@@ -94,8 +89,8 @@ contains
 
       ! --- maxiter ---
       maxiter = config%max_iter
-      if (any(config%ifstress == 1))                          maxiter = max(maxiter, iter_lower_limit)
-      if (all(config%ifstress == 0) .and. .not. is_obey)     maxiter = 1
+      if (any(config%ifstress == STRESS_CTRL))                          maxiter = max(maxiter, iter_lower_limit)
+      if (all(config%ifstress == STRAIN_CTRL) .and. .not. is_obey)     maxiter = 1
 
       ! --- Allocate rollback buffer for statev ---
       allocate(statev_saved(size(state%statev)))
@@ -107,25 +102,10 @@ contains
       statev_saved = state%statev
       dt           = state%dt
       state%dt     = 0.0_dp
-      call runner%run(state, [(0.0_dp, i=1,ntens)], ddsig_by_ddeps, ndi, nshr, ntens)
+      call runner%run(state, [(0.0_dp, i=1,ntens)], ddsig_by_ddeps, ndi, nshr, ntens, 0.0_dp)
       state%sig    = sig_saved
       state%statev = statev_saved
       state%dt     = dt
-
-      ! --- Open *ImportFile if needed ---
-      if (trim(config%load_type) == '*ImportFile') then
-         import_file_id = open(config%import_file)
-         ! Skip leading non-numeric header lines
-         do
-            read(import_file_id, '(a)', iostat=iostat) hugeLine
-            if (iostat /= 0) error stop 'integrate_step: error reading ImportFile headers'
-            hugeLine = adjustl(hugeLine)
-            aChar    = hugeLine(1:1)
-            if (index('1234567890+-.', aChar) > 0) exit
-         end do
-         read(hugeLine, *, iostat=iostat) oldState(1:config%n_import)
-         if (iostat /= 0) error stop 'integrate_step: error reading first ImportFile record'
-      end if
 
       ! --- Allocate results buffer ---
       allocate(results_buf(config%n_inc))
@@ -137,30 +117,23 @@ contains
          ! --- Get increment load ---
          if (trim(config%load_type) == '*ImportFile') then
             dtemp = 0.0_dp
-            read(import_file_id, *, iostat=iostat) newState(1:config%n_import)
-            if (iostat > 0) then
-               write(*,*) 'integrate_step: error reading ImportFile, line', kinc + 1
-               error stop
-            else if (iostat < 0) then
-               ! EOF — finished reading file
-               close(import_file_id)
+            if (kinc + 1 > size(config%import_data, 1)) then
                write(*,*) 'integrate_step: finished reading', trim(config%import_file)
                exit do_kinc
             end if
-            dState = newState - oldState
-            dsig   = 0.0_dp
-            deps   = 0.0_dp
+            dState(1:config%n_import) = config%import_data(kinc+1, :) - config%import_data(kinc, :)
+            dsig = 0.0_dp
+            deps = 0.0_dp
             do i = 1, 6
                if (config%columns_in_file(i) == 0) cycle
-               if (config%ifstress(i) == 1) dsig(i)  = dState(config%columns_in_file(i)) * config%import_factor(i)
-               if (config%ifstress(i) == 0) deps(i)  = dState(config%columns_in_file(i)) * config%import_factor(i)
+               if (config%ifstress(i) == STRESS_CTRL) dsig(i) = dState(config%columns_in_file(i)) * config%import_factor(i)
+               if (config%ifstress(i) == STRAIN_CTRL) deps(i) = dState(config%columns_in_file(i)) * config%import_factor(i)
             end do
             if (config%columns_in_file(7) /= 0) then
                dt = dState(config%columns_in_file(7)) * config%import_factor(7)
             else
                dt = config%delta_time / config%n_inc
             end if
-            oldState = newState
          else
             call get_increment(config, state%time, dt, dsig, deps, dtemp, R_polar, state%F_start, state%F_end, drot)
          end if
@@ -191,7 +164,7 @@ contains
                deps_Cart = matmul(transpose(M), deps)   ! M^{-T} * deps_Rosc → deps_Cart
             end if
 
-            call runner%run(state, deps_Cart, ddsig_by_ddeps, ndi, nshr, ntens)
+            call runner%run(state, deps_Cart, ddsig_by_ddeps, ndi, nshr, ntens, dtemp)
 
             if (kiter < maxiter) then
                ! Undo model updates — accumulate stress approximation for next iteration
@@ -254,17 +227,11 @@ contains
 
          ! --- *ImportFile: stress alignment ---
          if (trim(config%load_type) == '*ImportFile' .and. present(align)) then
-            call tryAlignStress(align, kinc, newState, config%n_import, state%sig, ntens)
+            call tryAlignStress(align, kinc, config%import_data(kinc+1,:), config%n_import, state%sig, ntens)
          end if
 
       end do do_kinc
       ! ======================================================================
-
-      ! Close ImportFile if it was opened (guard against early-exit path
-      ! where close already happened on EOF)
-      if (trim(config%load_type) == '*ImportFile' .and. n_results == config%n_inc) then
-         close(import_file_id)
-      end if
 
       ! Trim results to actual count (early exit reduces n_results)
       results = results_buf(1:n_results)
