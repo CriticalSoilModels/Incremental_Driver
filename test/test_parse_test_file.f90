@@ -12,6 +12,7 @@ program test_parse_test_file
 
    call test_single_linear_load()
    call test_heading_is_read()
+   call test_repetition_expansion()
 
    if (nfail == 0) then
       print *, 'PASS  test_parse_test_file'
@@ -135,6 +136,63 @@ contains
       call check_int(steps(2)%write_freq, 4,    'two_step: step2 write_freq', nfail)
       call check_real(steps(2)%config%delta_time, 2.0_dp, tol, 'two_step: step2 delta_time', nfail)
    end subroutine test_heading_is_read
+
+   ! ---------------------------------------------------------------------------
+   ! test_repetition_expansion
+   ! *Repetition with 2 steps x 3 repetitions = 6 total steps.
+   ! ---------------------------------------------------------------------------
+   subroutine test_repetition_expansion()
+      integer                          :: fid, n_steps
+      type(step_record_t), allocatable :: steps(:)
+      type(StressAlignment)            :: align
+      character(len=260)               :: heading
+
+      open(newunit=fid, status='scratch')
+      write(fid, '(a)') 'output.txt'
+      write(fid, '(a)') '*Repetition'
+      write(fid, '(a)') '2 3'           ! 2 steps, 3 repetitions
+      write(fid, '(a)') '*LinearLoad'
+      write(fid, '(a)') '10 5 1.0 : 1'
+      write(fid, '(a)') '*Cartesian'
+      write(fid, '(a)') '0 0.001'
+      write(fid, '(a)') '0 0.0'
+      write(fid, '(a)') '0 0.0'
+      write(fid, '(a)') '0 0.0'
+      write(fid, '(a)') '0 0.0'
+      write(fid, '(a)') '0 0.0'
+      write(fid, '(a)') '*LinearLoad'
+      write(fid, '(a)') '10 5 1.0 : 1'
+      write(fid, '(a)') '*Cartesian'
+      write(fid, '(a)') '0 -0.001'
+      write(fid, '(a)') '0 0.0'
+      write(fid, '(a)') '0 0.0'
+      write(fid, '(a)') '0 0.0'
+      write(fid, '(a)') '0 0.0'
+      write(fid, '(a)') '0 0.0'
+      write(fid, '(a)') '*End'
+      rewind(fid)
+
+      call parse_test_file(fid, heading, steps, n_steps, align)
+      close(fid)
+
+      call check_int(n_steps, 6, 'repetition: n_steps (2 x 3)', nfail)
+
+      if (n_steps < 6) return
+
+      ! Odd steps (1,3,5) should have positive delta_load(1)
+      call check_real(steps(1)%config%delta_load(1),  0.001_dp, tol, 'repetition: step1 delta_load(1)', nfail)
+      call check_real(steps(3)%config%delta_load(1),  0.001_dp, tol, 'repetition: step3 delta_load(1)', nfail)
+      call check_real(steps(5)%config%delta_load(1),  0.001_dp, tol, 'repetition: step5 delta_load(1)', nfail)
+
+      ! Even steps (2,4,6) should have negative delta_load(1)
+      call check_real(steps(2)%config%delta_load(1), -0.001_dp, tol, 'repetition: step2 delta_load(1)', nfail)
+      call check_real(steps(4)%config%delta_load(1), -0.001_dp, tol, 'repetition: step4 delta_load(1)', nfail)
+      call check_real(steps(6)%config%delta_load(1), -0.001_dp, tol, 'repetition: step6 delta_load(1)', nfail)
+
+      ! All steps should have n_inc = 10
+      call check_int(steps(1)%config%n_inc, 10, 'repetition: step1 n_inc', nfail)
+      call check_int(steps(6)%config%n_inc, 10, 'repetition: step6 n_inc', nfail)
+   end subroutine test_repetition_expansion
 
    ! ---------------------------------------------------------------------------
    ! Assertion helpers
