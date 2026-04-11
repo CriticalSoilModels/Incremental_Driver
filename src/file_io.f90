@@ -4,11 +4,12 @@ module indr_file_io
    use stdlib_kinds, only: dp
    use stdlib_io, only: open, get_line
    use indr_constants, only: max_fname_len, max_mater_len, voigt_len, max_head_len
+   use indr_step_params, only: material_state_t
 
    implicit none(type, external)
    private
    public :: read_parameter_file, read_init_conditions_file, set_output_name_from_test_file, &
-      write_line_output_data, write_output_file_header
+      write_line_output_data, write_output_file_header, write_step_output
 
 contains
    subroutine read_parameter_file(file_name, num_props, prop_vals, &
@@ -204,4 +205,29 @@ contains
       write(output_file_id,'(500(g17.10,3h    ))') time+(/dtime,dtime/), strain, stress, state_vars
 
    end subroutine write_line_output_data
+
+   subroutine write_step_output(file_id, results, write_freq)
+      !! Write increment snapshots to an open output file.
+      !!
+      !! Writes every write_freq-th entry from results(:).
+      !! results(i)%time already holds the end-of-increment time;
+      !! write_line_output_data is called with dtime=0 so it is not added again.
+      integer,                intent(in) :: file_id
+      type(material_state_t), intent(in) :: results(:)
+      integer,                intent(in) :: write_freq
+
+      integer :: i, ievery
+
+      ievery = 1
+      do i = 1, size(results)
+         if (ievery == 1) then
+            call write_line_output_data(file_id, results(i)%time, 0.0_dp, &
+               results(i)%eps, results(i)%sig, results(i)%statev)
+         end if
+         ievery = ievery + 1
+         if (ievery > write_freq) ievery = 1
+      end do
+
+   end subroutine write_step_output
+
 end module indr_file_io
